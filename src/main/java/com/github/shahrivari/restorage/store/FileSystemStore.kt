@@ -2,22 +2,21 @@ package com.github.shahrivari.restorage.store
 
 import com.github.shahrivari.restorage.*
 import com.github.shahrivari.restorage.commons.RangeStream
+import com.github.shahrivari.restorage.commons.fromJson
 import com.github.shahrivari.restorage.commons.toJson
 import com.google.common.hash.Hashing
 import com.google.common.io.ByteStreams
 import com.google.common.io.Files
 import java.io.*
-
-data class KeyMetaData(val bucket: String,
-                       val key: String,
-                       val contentType: String?)
+import java.time.LocalDateTime
+import java.time.ZoneOffset
 
 class FileSystemBasedStore(val rootDir: String) {
     private val bucketMetaDataStore = BucketMetaDataStore(rootDir)
 
     init {
         val sep = File.separator
-
+        File(rootDir).mkdirs()
         for (i in 0..255) {
             val dir1 = File("$rootDir$sep${"%02x".format(i)}")
             if (!dir1.exists()) dir1.mkdir()
@@ -48,13 +47,11 @@ class FileSystemBasedStore(val rootDir: String) {
     fun deleteBucket(bucket: String) =
             bucketMetaDataStore.deleteBucket(bucket)
 
-    fun put(bucket: String, key: String, data: InputStream, contentType: String?) = withBucket(bucket) {
+    fun put(bucket: String, key: String, data: InputStream, meta: MetaData) = withBucket(bucket) {
         FileOutputStream(getDataPathForKey(bucket, key), false).use {
             ByteStreams.copy(data, it)
         }
-        File(getMetaPathForKey(bucket, key)).writeText(
-                KeyMetaData(bucket, key, contentType).toJson()
-        )
+        File(getMetaPathForKey(bucket, key)).writeText(meta.toJson())
     }
 
     fun append(bucket: String, key: String, data: InputStream) = withBucket(bucket) {
@@ -71,9 +68,37 @@ class FileSystemBasedStore(val rootDir: String) {
         return source.hash(Hashing.md5()).toString().toLowerCase()
     }
 
-    fun get(bucket: String, key: String) = withBucket(bucket) {
+    fun get(bucket: String, key: String, start: Long? = null, end: Long? = null): GetResult = withBucket(bucket) {
+        // Check for invalid ranges
+        if (start != null && start < 0)
+            throw InvalidRangeRequest("start: $start and end: $end")
+        if (end != null && end < 0)
+            throw InvalidRangeRequest("start: $start and end: $end")
+        if (start == null && end != null)
+            throw InvalidRangeRequest("start: $start and end: $end")
+
         try {
-            return@withBucket FileInputStream(getDataPathForKey(bucket, key))
+            val file = File(getDataPathForKey(bucket, key))
+
+            val actualStart = start ?: 0
+            val fileSize = file.length()
+            val actualEnd = end ?: fileSize - 1
+            val actualLength = actualEnd - actualStart + 1
+            if (actualLength <= 0)
+                throw InvalidRangeRequest("start: $start and end: $end")
+
+            val storedMeta = fromJson<MetaData>(File(getMetaPathForKey(bucket, key)).readText())
+
+            val fileStream = file.inputStream()
+            fileStream.channel.position(actualStart)
+            val stream = RangeStream(fileStream, actualLength)
+
+            val result = GetResult(bucket, key, stream, actualLength,
+                                   totalSize = fileSize,
+                                   contentType = storedMeta.contentType,
+                                   lastModified = file.lastModified())
+
+            return@withBucket result
         } catch (e: FileNotFoundException) {
             throw KeyNotFoundException(bucket, key)
         }
@@ -84,16 +109,6 @@ class FileSystemBasedStore(val rootDir: String) {
             File(getDataPathForKey(bucket, key)).exists()
         } catch (e: FileNotFoundException) {
             false
-        }
-    }
-
-    fun getRange(bucket: String, key: String, offset: Long, size: Long) = withBucket(bucket) {
-        try {
-            val stream =
-                    RangeStream.getRangeStreamFromFile(getDataPathForKey(bucket, key), offset, size)
-            return@withBucket RangeResponse(offset, offset + size, RangeStream(stream, size))
-        } catch (e: FileNotFoundException) {
-            throw KeyNotFoundException(bucket, key)
         }
     }
 

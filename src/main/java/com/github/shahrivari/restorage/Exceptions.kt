@@ -14,28 +14,17 @@ open class StoraValidationException : StoraException {
         this.statusCode = statusCode
         this.errorCode = errorCode
     }
-
-    constructor(message: String,
-                statusCode: Int = 400,
-                errorCode: Int = 400,
-                cause: Throwable) : super(message, cause) {
-        this.statusCode = statusCode
-        this.errorCode = errorCode
-    }
 }
 
 
-class FileNotExistException(message: String, statusCode: Int = 404, errorCode: Int = 400) :
-        StoraValidationException(message, statusCode, errorCode)
+class BucketAlreadyExists(bucket: String) :
+        StoraValidationException("Bucket already exists: $bucket", 409, 1001)
 
-class BucketAlreadyExists(bucket: String, statusCode: Int = 409, errorCode: Int = 400) :
-        StoraValidationException("Bucket already exists: $bucket", statusCode, errorCode)
+class BucketNotFound(bucket: String) :
+        StoraValidationException("Bucket not found: $bucket", 404, 1002)
 
-class BucketNotFound(bucket: String, statusCode: Int = 404, errorCode: Int = 400) :
-        StoraValidationException("Bucket not found: $bucket", statusCode, errorCode)
-
-class KeyNotFoundException(bucket: String, key: String, statusCode: Int = 404, errorCode: Int = 400) :
-        StoraValidationException("Key not found: $bucket : $key", statusCode, errorCode)
+class KeyNotFoundException(bucket: String, key: String) :
+        StoraValidationException("Key not found: $bucket : $key", 404, 1003)
 
 class InvalidRangeRequest(header: String) :
-        StoraValidationException("Invalid range request: $header", 400, 400)
+        StoraValidationException("Invalid range request: $header", 416, 1004)

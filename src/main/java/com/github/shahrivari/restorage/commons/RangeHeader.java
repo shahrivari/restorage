@@ -25,7 +25,10 @@ public class RangeHeader {
     }
 
     public Long length() {
-        return end - start;
+        if (end == null)
+            return Long.MAX_VALUE;
+        else
+            return end - start;
     }
 
     public static List<RangeHeader> decodeRange(String rangeHeader) throws InvalidRangeRequest {

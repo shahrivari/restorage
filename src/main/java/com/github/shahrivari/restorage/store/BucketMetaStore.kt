@@ -48,9 +48,10 @@ class BucketMetaDataStore(val rootDir: String) {
         if (!bucketExists(bucket))
             throw BucketNotFound(bucket)
 
+        bucketCache.invalidate(bucket)
         val file = File(getBucketFilePath(bucket))
         val newList = file.useLines { lines ->
-            return@useLines lines.map { fromJson<BucketInfo>(it) }.filter { it.name != bucket }
+            return@useLines lines.map { fromJson<BucketInfo>(it) }.filter { it.name != bucket }.toList()
         }
 
         file.outputStream().bufferedWriter().use { writer ->
