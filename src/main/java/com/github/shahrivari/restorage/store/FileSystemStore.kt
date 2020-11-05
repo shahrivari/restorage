@@ -10,6 +10,7 @@ import com.google.common.io.Files
 import java.io.*
 import java.time.LocalDateTime
 import java.time.ZoneOffset
+import java.util.*
 
 class FileSystemBasedStore(val rootDir: String) {
     private val bucketMetaDataStore = BucketMetaDataStore(rootDir)
@@ -41,17 +42,18 @@ class FileSystemBasedStore(val rootDir: String) {
     fun createBucket(bucket: String) =
             bucketMetaDataStore.createBucket(bucket)
 
-    fun bucketExists(bucket: String): Boolean =
-            bucketMetaDataStore.bucketExists(bucket)
+    fun getBucketInfo(bucket: String): Optional<BucketInfo> =
+            bucketMetaDataStore.getBucketInfo(bucket)
 
     fun deleteBucket(bucket: String) =
             bucketMetaDataStore.deleteBucket(bucket)
 
     fun put(bucket: String, key: String, data: InputStream, meta: MetaData) = withBucket(bucket) {
-        FileOutputStream(getDataPathForKey(bucket, key), false).use {
+        val size = FileOutputStream(getDataPathForKey(bucket, key), false).use {
             ByteStreams.copy(data, it)
         }
         File(getMetaPathForKey(bucket, key)).writeText(meta.toJson())
+        return@withBucket PutResult(bucket, key, size, meta.contentType)
     }
 
     fun append(bucket: String, key: String, data: InputStream) = withBucket(bucket) {
@@ -66,6 +68,14 @@ class FileSystemBasedStore(val rootDir: String) {
     fun computeMd5(bucket: String, key: String): String {
         val source = Files.asByteSource(File(getDataPathForKey(bucket, key)))
         return source.hash(Hashing.md5()).toString().toLowerCase()
+    }
+
+    fun getMeta(bucket: String, key: String): MetaData = withBucket(bucket) {
+        return@withBucket try {
+            fromJson<MetaData>(File(getMetaPathForKey(bucket, key)).readText())
+        } catch (e: FileNotFoundException) {
+            throw KeyNotFoundException(bucket, key)
+        }
     }
 
     fun get(bucket: String, key: String, start: Long? = null, end: Long? = null): GetResult = withBucket(bucket) {
@@ -125,7 +135,7 @@ class FileSystemBasedStore(val rootDir: String) {
     }
 
     private fun <R> withBucket(bucket: String, block: () -> R): R {
-        if (!bucketExists(bucket))
+        if (!getBucketInfo(bucket).isPresent)
             throw BucketNotFound(bucket)
         return block()
     }

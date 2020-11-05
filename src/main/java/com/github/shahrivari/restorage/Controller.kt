@@ -8,42 +8,55 @@ import io.javalin.http.Context
 
 class Controller(private val app: Javalin, private val store: FileSystemBasedStore) {
 
+    companion object {
+        const val BUCKET_CRUD_PATH = "/buckets/:bucket"
+        const val OBJECT_CRUD_PATH = "/obj/:bucket/:key"
+    }
+
     fun Context.bucket() = pathParam("bucket")
     fun Context.key() = pathParam("key")
 
     fun wireUp() {
-        app.post("/bucket/create/:bucket") { ctx ->
-            store.createBucket(ctx.bucket())
-            ctx.status(200)
-        }
 
-        app.get("/bucket/exists/:bucket") { ctx ->
-            val result = store.bucketExists(ctx.bucket())
-            ctx.status(if (result) 200 else 404)
+        app.post(BUCKET_CRUD_PATH) { ctx ->
+            val result = store.createBucket(ctx.bucket())
+            ctx.status(200)
             ctx.json(result)
         }
 
-        app.delete("/bucket/delete/:bucket") { ctx ->
+        app.get(BUCKET_CRUD_PATH) { ctx ->
+            val result = store.getBucketInfo(ctx.bucket())
+            ctx.status(if (result.isPresent) 200 else 404)
+            result.ifPresent { ctx.json(it) }
+        }
+
+        app.head(BUCKET_CRUD_PATH) { ctx ->
+            val result = store.getBucketInfo(ctx.bucket())
+            ctx.status(if (result.isPresent) 200 else 404)
+        }
+
+        app.delete(BUCKET_CRUD_PATH) { ctx ->
             store.deleteBucket(ctx.bucket())
-            ctx.status(200)
+            ctx.status(204)
         }
 
-        app.post("/put/:bucket/:key") { ctx ->
-            store.put(ctx.bucket(),
-                      ctx.key(),
-                      ctx.req.inputStream,
-                      MetaData.fromHttpHeaders(ctx))
+        app.post(OBJECT_CRUD_PATH) { ctx ->
+            val result = store.put(ctx.bucket(),
+                                   ctx.key(),
+                                   ctx.req.inputStream,
+                                   MetaData.fromHttpHeaders(ctx))
             ctx.status(200)
+            ctx.json(result)
         }
 
-        app.put("/append/:bucket/:key") { ctx ->
+        app.put(OBJECT_CRUD_PATH) { ctx ->
             store.append(ctx.bucket(),
                          ctx.key(),
                          ctx.req.inputStream)
             ctx.status(200)
         }
 
-        app.get("/get/:bucket/:key") { ctx ->
+        app.get(OBJECT_CRUD_PATH) { ctx ->
             var start: Long? = null
             var end: Long? = null
 
@@ -58,11 +71,16 @@ class Controller(private val app: Javalin, private val store: FileSystemBasedSto
 
             val result = store.get(ctx.bucket(), ctx.key(), start, end)
             ctx.result(result.stream)
-            result.contentType?.let { ctx.contentType(it) }
+            ctx.contentType(result.contentType ?: "application/octet-stream")
+            ctx.header("Content-Encoding", "identity")
             result.length?.let { ctx.res.setContentLengthLong(it) }
             result.lastModified?.let {
                 ctx.res.setDateHeader("Last-Modified", it)
                 ctx.res.setIntHeader("Age", ((System.currentTimeMillis() - it) / 1000).toInt())
+            }
+
+            result.totalSize?.let {
+                ctx.res.setHeader("X-ReStorage-Object-TotalSize", it.toString())
             }
 
             if (start == null && end == null)
@@ -71,13 +89,13 @@ class Controller(private val app: Javalin, private val store: FileSystemBasedSto
                 ctx.status(206)
         }
 
-        app.get("/exists/:bucket/:key") { ctx ->
+        app.head(OBJECT_CRUD_PATH) { ctx ->
             val result = store.objectExists(ctx.bucket(), ctx.key())
             ctx.status(if (result) 200 else 404)
             ctx.json(result)
         }
 
-        app.delete("/delete/:bucket/:key") { ctx ->
+        app.delete(OBJECT_CRUD_PATH) { ctx ->
             store.delete(ctx.bucket(), ctx.key())
             ctx.status(200)
         }

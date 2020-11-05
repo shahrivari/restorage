@@ -30,18 +30,23 @@ class BucketMetaDataStore(val rootDir: String) {
         return "$rootDir${File.separator}${bucketSha1.substring(0, 2)}${File.separator}buckets"
     }
 
-    fun createBucket(bucket: String) {
+    fun createBucket(bucket: String): BucketInfo {
         if (bucketExists(bucket))
             throw BucketAlreadyExists(bucket)
 
         bucketCache.invalidate(bucket)
+        val bucketInfo = BucketInfo(bucket)
         FileOutputStream(getBucketFilePath(bucket), true).bufferedWriter().use {
-            it.appendLine(BucketInfo(bucket).toJson())
+            it.appendLine(bucketInfo.toJson())
         }
+        return bucketInfo
     }
 
     fun bucketExists(bucket: String): Boolean =
-            bucketCache.get(bucket).isPresent
+            getBucketInfo(bucket).isPresent
+
+    fun getBucketInfo(bucket: String): Optional<BucketInfo> =
+            bucketCache.get(bucket)
 
 
     fun deleteBucket(bucket: String) {

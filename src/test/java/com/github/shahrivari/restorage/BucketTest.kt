@@ -1,67 +1,46 @@
 package com.github.shahrivari.restorage
 
-import io.restassured.RestAssured.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
-class BucketTest: ReStorageTest() {
+class BucketTest : BaseReStorageTest() {
     @BeforeEach
     private fun resetDefaultBucket() {
-        if (get(EXISTS_DEFAULT_BUCKET_PATH).statusCode == 200)
-            delete(DELETE_DEFAULT_BUCKET_PATH)
+        if (client.bucketExists(DEFAULT_BUCKET))
+            client.deleteBucket(DEFAULT_BUCKET)
     }
 
 
     @Test
     fun `test bucket creation`() {
-        post(CREATE_DEFAULT_BUCKET_PATH)
-                .then()
-                .assertThat()
-                .statusCode(200)
-        get(EXISTS_DEFAULT_BUCKET_PATH)
-                .then()
-                .assertThat()
-                .statusCode(200)
+        assertFalse { client.bucketExists(DEFAULT_BUCKET) }
+        client.createBucket(DEFAULT_BUCKET)
+        assertTrue { client.bucketExists(DEFAULT_BUCKET) }
     }
+
 
     @Test
     fun `should fail on duplicate bucket`() {
-        post(CREATE_DEFAULT_BUCKET_PATH)
-                .then()
-                .assertThat()
-                .statusCode(200)
-        post(CREATE_DEFAULT_BUCKET_PATH)
-                .then()
-                .assertThat()
-                .statusCode(409)
+        client.createBucket(DEFAULT_BUCKET)
+        assertThrows<BucketAlreadyExists> { client.createBucket(DEFAULT_BUCKET) }
     }
 
     @Test
     fun `should fail on existence of absent bucket`() {
-        get(EXISTS_DEFAULT_BUCKET_PATH)
-                .then()
-                .assertThat()
-                .statusCode(404)
+        assertFalse { client.bucketExists(DEFAULT_BUCKET) }
     }
 
     @Test
     fun `test bucket deletion`() {
-        post(CREATE_DEFAULT_BUCKET_PATH)
-                .then()
-                .assertThat()
-                .statusCode(200)
-        delete(DELETE_DEFAULT_BUCKET_PATH)
-                .then()
-                .assertThat()
-                .statusCode(200)
+        client.createBucket(DEFAULT_BUCKET)
+        client.deleteBucket(DEFAULT_BUCKET)
     }
 
     @Test
     fun `should fail on absent bucket deletion`() {
-        delete(DELETE_DEFAULT_BUCKET_PATH)
-                .then()
-                .assertThat()
-                .statusCode(404)
+        assertThrows<BucketNotFound> { client.deleteBucket("ABSENT_BUCKET") }
     }
-
 }

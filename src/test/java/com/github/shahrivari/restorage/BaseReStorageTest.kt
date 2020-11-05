@@ -1,33 +1,40 @@
 package com.github.shahrivari.restorage
 
+import com.github.shahrivari.restorage.client.ReStorageClient
 import io.restassured.RestAssured
 import io.restassured.RestAssured.*
+import io.restassured.module.kotlin.extensions.Given
+import io.restassured.specification.RequestSpecification
+import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.io.File
 
-open class ReStorageTest {
+open class BaseReStorageTest {
 
     companion object {
         const val port = 8000
-        const val dir = "/dev/shm/test11"
+        const val dir = "/dev/shm/restorage_unit_tests"
         lateinit var app: ReStorageApp
         const val DEFAULT_BUCKET = "alaki"
 
-        const val CREATE_DEFAULT_BUCKET_PATH = "/bucket/create/$DEFAULT_BUCKET"
-        const val EXISTS_DEFAULT_BUCKET_PATH = "/bucket/exists/$DEFAULT_BUCKET"
-        const val DELETE_DEFAULT_BUCKET_PATH = "/bucket/delete/$DEFAULT_BUCKET"
-
+        val client by lazy { ReStorageClient("http://localhost:$port") }
 
         @BeforeAll
         @JvmStatic
         fun startServer() {
             File(dir).deleteRecursively()
             app = ReStorageApp().runOnPort(port, dir)
-            baseURI = "http://localhost"
-            RestAssured.port = port
             Runtime.getRuntime().addShutdownHook(Thread { app.stop() })
         }
+
+        @AfterAll
+        @JvmStatic
+        fun dispose() {
+            File(dir).deleteRecursively()
+            app.stop()
+        }
     }
+
 }
