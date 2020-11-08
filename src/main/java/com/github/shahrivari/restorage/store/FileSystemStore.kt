@@ -1,16 +1,21 @@
 package com.github.shahrivari.restorage.store
 
-import com.github.shahrivari.restorage.*
+import com.github.shahrivari.restorage.BucketNotFound
+import com.github.shahrivari.restorage.InvalidRangeRequest
+import com.github.shahrivari.restorage.KeyNotFoundException
 import com.github.shahrivari.restorage.commons.RangeStream
 import com.github.shahrivari.restorage.commons.fromJson
 import com.github.shahrivari.restorage.commons.toJson
 import com.google.common.hash.Hashing
 import com.google.common.io.ByteStreams
 import com.google.common.io.Files
-import java.io.*
-import java.time.LocalDateTime
-import java.time.ZoneOffset
+import java.io.File
+import java.io.FileNotFoundException
+import java.io.FileOutputStream
+import java.io.InputStream
+import java.nio.file.attribute.BasicFileAttributes
 import java.util.*
+
 
 class FileSystemBasedStore(val rootDir: String) {
     private val bucketMetaDataStore = BucketMetaDataStore(rootDir)
@@ -56,12 +61,21 @@ class FileSystemBasedStore(val rootDir: String) {
         return@withBucket PutResult(bucket, key, size, meta.contentType)
     }
 
-    fun append(bucket: String, key: String, data: InputStream) = withBucket(bucket) {
+    fun append(bucket: String, key: String, data: InputStream, meta: MetaData) = withBucket(bucket) {
         val file = File(getDataPathForKey(bucket, key))
         if (!file.exists())
             throw KeyNotFoundException(bucket, key)
         FileOutputStream(file, true).use {
             ByteStreams.copy(data, it)
+        }
+
+        // Update meta data
+        if (meta.other?.isNotEmpty() == true) {
+            val oldMeta = fromJson<MetaData>(File(getMetaPathForKey(bucket, key)).readText())
+            meta.other?.forEach {
+                oldMeta.set(it.key, it.value)
+            }
+            File(getMetaPathForKey(bucket, key)).writeText(oldMeta.toJson())
         }
     }
 
@@ -72,7 +86,13 @@ class FileSystemBasedStore(val rootDir: String) {
 
     fun getMeta(bucket: String, key: String): MetaData = withBucket(bucket) {
         return@withBucket try {
-            fromJson<MetaData>(File(getMetaPathForKey(bucket, key)).readText())
+            val meta = fromJson<MetaData>(File(getMetaPathForKey(bucket, key)).readText())
+            val file = File(getDataPathForKey(bucket, key))
+            val attr = java.nio.file.Files.readAttributes(file.toPath(), BasicFileAttributes::class.java)
+
+            meta.lastModified = attr.lastModifiedTime().toMillis()
+            meta.objectSize = attr.size()
+            return@withBucket meta
         } catch (e: FileNotFoundException) {
             throw KeyNotFoundException(bucket, key)
         }
@@ -93,22 +113,18 @@ class FileSystemBasedStore(val rootDir: String) {
             val actualStart = start ?: 0
             val fileSize = file.length()
             val actualEnd = end ?: fileSize - 1
-            val actualLength = actualEnd - actualStart + 1
-            if (actualLength <= 0)
+            val responseLength = actualEnd - actualStart + 1
+            if (responseLength <= 0)
                 throw InvalidRangeRequest("start: $start and end: $end")
 
-            val storedMeta = fromJson<MetaData>(File(getMetaPathForKey(bucket, key)).readText())
+            val storedMeta = getMeta(bucket, key)
+            storedMeta.contentLength = responseLength
 
             val fileStream = file.inputStream()
             fileStream.channel.position(actualStart)
-            val stream = RangeStream(fileStream, actualLength)
+            val stream = RangeStream(fileStream, responseLength)
 
-            val result = GetResult(bucket, key, stream, actualLength,
-                                   totalSize = fileSize,
-                                   contentType = storedMeta.contentType,
-                                   lastModified = file.lastModified())
-
-            return@withBucket result
+            return@withBucket GetResult(bucket, key, stream, storedMeta)
         } catch (e: FileNotFoundException) {
             throw KeyNotFoundException(bucket, key)
         }

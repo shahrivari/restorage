@@ -2,6 +2,7 @@ package com.github.shahrivari.restorage.client
 
 import com.github.shahrivari.restorage.commons.jacksonMapper
 import com.github.shahrivari.restorage.store.BucketInfo
+import com.github.shahrivari.restorage.store.MetaData
 import com.github.shahrivari.restorage.store.PutResult
 import okhttp3.RequestBody
 import retrofit2.Call
@@ -28,9 +29,13 @@ interface ReStorageRestClient {
                   @Path("key") key: String,
                   @Body bytes: RequestBody): Call<PutResult>
 
-    @HEAD(OBJECT_CRUD_PATH)
+    @DELETE(OBJECT_CRUD_PATH)
+    fun deleteObject(@Path("bucket") bucket: String,
+                  @Path("key") key: String): Call<Unit>
+
+    @GET("$OBJECT_CRUD_PATH/meta")
     fun getObjectMeta(@Path("bucket") bucket: String,
-                      @Path("key") key: String): Call<Map<String, Any?>>
+                      @Path("key") key: String): Call<MetaData>
 
 
     companion object {

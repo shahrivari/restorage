@@ -52,7 +52,8 @@ class Controller(private val app: Javalin, private val store: FileSystemBasedSto
         app.put(OBJECT_CRUD_PATH) { ctx ->
             store.append(ctx.bucket(),
                          ctx.key(),
-                         ctx.req.inputStream)
+                         ctx.req.inputStream,
+                         MetaData.fromHttpHeaders(ctx))
             ctx.status(200)
         }
 
@@ -71,17 +72,8 @@ class Controller(private val app: Javalin, private val store: FileSystemBasedSto
 
             val result = store.get(ctx.bucket(), ctx.key(), start, end)
             ctx.result(result.stream)
-            ctx.contentType(result.contentType ?: "application/octet-stream")
             ctx.header("Content-Encoding", "identity")
-            result.length?.let { ctx.res.setContentLengthLong(it) }
-            result.lastModified?.let {
-                ctx.res.setDateHeader("Last-Modified", it)
-                ctx.res.setIntHeader("Age", ((System.currentTimeMillis() - it) / 1000).toInt())
-            }
-
-            result.totalSize?.let {
-                ctx.res.setHeader("X-ReStorage-Object-TotalSize", it.toString())
-            }
+            result.metaData?.fillToHeaders(ctx)
 
             if (start == null && end == null)
                 ctx.status(200)
@@ -89,10 +81,16 @@ class Controller(private val app: Javalin, private val store: FileSystemBasedSto
                 ctx.status(206)
         }
 
-        app.head(OBJECT_CRUD_PATH) { ctx ->
-            val result = store.objectExists(ctx.bucket(), ctx.key())
-            ctx.status(if (result) 200 else 404)
+        app.get("$OBJECT_CRUD_PATH/meta") { ctx ->
+            val result = store.getMeta(ctx.bucket(), ctx.key())
+            ctx.status(200)
             ctx.json(result)
+        }
+
+        app.head(OBJECT_CRUD_PATH) { ctx ->
+            val result = store.getMeta(ctx.bucket(), ctx.key())
+            result.fillToHeaders(ctx)
+            result.objectSize?.let { ctx.res.setContentLengthLong(it) }
         }
 
         app.delete(OBJECT_CRUD_PATH) { ctx ->

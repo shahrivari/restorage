@@ -2,8 +2,10 @@ package com.github.shahrivari.restorage.client
 
 import com.github.shahrivari.restorage.BucketAlreadyExists
 import com.github.shahrivari.restorage.BucketNotFound
+import com.github.shahrivari.restorage.KeyNotFoundException
 import com.github.shahrivari.restorage.store.BucketInfo
 import com.github.shahrivari.restorage.store.GetResult
+import com.github.shahrivari.restorage.store.MetaData
 import com.github.shahrivari.restorage.store.PutResult
 import okhttp3.MediaType
 import okhttp3.OkHttpClient
@@ -12,6 +14,7 @@ import okhttp3.RequestBody
 import okio.BufferedSink
 import okio.Okio
 import java.io.InputStream
+import java.lang.IllegalArgumentException
 import java.lang.IllegalStateException
 
 class ReStorageClient(private val address: String) {
@@ -32,6 +35,8 @@ class ReStorageClient(private val address: String) {
             return it.isSuccessful
         }
     }
+
+    fun bucketNotExists(bucket: String) = !bucketExists(bucket)
 
     fun createBucket(bucket: String): BucketInfo? {
         restClient.createBucket(bucket).execute().let {
@@ -76,21 +81,40 @@ class ReStorageClient(private val address: String) {
         return restClient.putObject(bucket, key, body).execute().body()
     }
 
-    fun getObject(bucket: String, key: String): GetResult? {
-        val request: Request = Request.Builder()
-                .url("$address/obj/$bucket/$key")
-                .build()
+    fun getObject(bucket: String, key: String, start: Long? = null, end: Long? = null): GetResult? {
+        if (start == null && end != null) throw  IllegalArgumentException("start is null but end is not!")
+
+        val builder = Request.Builder().url("$address/obj/$bucket/$key")
+        if (start != null)
+            builder.addHeader("Range", "$start-${end ?: ""}")
+        val request: Request = builder.build()
+
         val response = pureClient.newCall(request).execute()
         val stream: InputStream = response.body()?.byteStream() ?: throw IllegalStateException("Body is null")
-        val result = GetResult(bucket,
-                               key,
-                               stream,
-                               response.body()?.contentLength(),
-                               null,
-                               null)
-        return result
+        val metaData = MetaData.fromResponse(bucket, key, response)
+        return GetResult(bucket, key, stream, metaData)
     }
 
+    fun getObjectMeta(bucket: String, key: String): MetaData? {
+        restClient.getObjectMeta(bucket, key).execute().let {
+            if (it.code() == 404)
+                throw KeyNotFoundException(bucket, key)
+            return it.body()
+        }
+    }
+
+    fun objectExists(bucket: String, key: String): Boolean {
+        restClient.getObjectMeta(bucket, key).execute().let {
+            return it.code() == 200
+        }
+    }
+
+    fun deleteObject(bucket: String, key: String) {
+        restClient.deleteObject(bucket, key).execute().let {
+            if (it.code() == 404)
+                throw KeyNotFoundException(bucket, key)
+        }
+    }
 
 }
 

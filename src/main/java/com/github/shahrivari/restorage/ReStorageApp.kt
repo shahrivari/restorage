@@ -39,7 +39,7 @@ fun main(args: Array<String>) {
     if (client.bucketExists("alaki"))
         client.deleteBucket("alaki")
     val res4 = client.createBucket("alaki")
-    val res5 = client.putObject("alaki", "1", FileInputStream("/home/reza/Downloads/ubuntu-16.04.6-server-arm64.iso"))
+//    val res5 = client.putObject("alaki", "1", FileInputStream("/home/reza/Downloads/ubuntu-16.04.6-server-arm64.iso"))
     val res6 = client.getObject("alaki", "1")
     println()
 }
