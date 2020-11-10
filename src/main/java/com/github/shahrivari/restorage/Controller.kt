@@ -45,16 +45,15 @@ class Controller(private val app: Javalin, private val store: FileSystemBasedSto
                                    ctx.key(),
                                    ctx.req.inputStream,
                                    MetaData.fromHttpHeaders(ctx))
-            ctx.status(200)
             ctx.json(result)
         }
 
         app.put(OBJECT_CRUD_PATH) { ctx ->
-            store.append(ctx.bucket(),
+            val result = store.append(ctx.bucket(),
                          ctx.key(),
                          ctx.req.inputStream,
                          MetaData.fromHttpHeaders(ctx))
-            ctx.status(200)
+            ctx.json(result)
         }
 
         app.get(OBJECT_CRUD_PATH) { ctx ->
@@ -99,9 +98,9 @@ class Controller(private val app: Javalin, private val store: FileSystemBasedSto
         }
 
 
-        app.exception(StoraValidationException::class.java) { e, ctx ->
+        app.exception(ReStorageException::class.java) { e, ctx ->
             ctx.status(e.statusCode)
-            ctx.json(mapOf("code" to e.errorCode, "message" to e.message))
+            ctx.json(mapOf("errorCode" to e.errorCode, "message" to e.message))
         }
 
         app.after { ctx ->

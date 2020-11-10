@@ -1,14 +1,8 @@
 package com.github.shahrivari.restorage
 
 import com.github.shahrivari.restorage.client.ReStorageClient
-import io.restassured.RestAssured
-import io.restassured.RestAssured.*
-import io.restassured.module.kotlin.extensions.Given
-import io.restassured.specification.RequestSpecification
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
-import org.junit.jupiter.api.BeforeEach
-import org.junit.jupiter.api.Test
 import java.io.File
 
 open class BaseReStorageTest {

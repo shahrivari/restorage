@@ -38,8 +38,8 @@ data class MetaData(var bucket: String,
             metaData.contentType = response.body()?.contentType()?.toString()
             metaData.lastModified = response.header("Last-Modified")?.let { HttpDate.parse(it).time }
 
-            response.headers().toMultimap().filter { it.key.startsWith(OBJECT_META_HEADER_PREFIX) }.forEach {
-                metaData.set(it.key.removePrefix(OBJECT_META_HEADER_PREFIX), it.value.firstOrNull())
+            response.headers().names().filter { it.startsWith(OBJECT_META_HEADER_PREFIX) }.forEach {
+                metaData.set(it.removePrefix(OBJECT_META_HEADER_PREFIX), response.header(it))
             }
 
             return metaData
@@ -67,4 +67,5 @@ data class MetaData(var bucket: String,
             ctx.header("$OBJECT_META_HEADER_PREFIX${it.key}", it.value ?: "")
         }
     }
+
 }

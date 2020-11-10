@@ -34,14 +34,6 @@ class ReStorageApp : CliktCommand() {
 
 fun main(args: Array<String>) {
     ReStorageApp().main(args)
-    Thread.sleep(500)
-    val client = ReStorageClient("http://localhost:7000")
-    if (client.bucketExists("alaki"))
-        client.deleteBucket("alaki")
-    val res4 = client.createBucket("alaki")
-//    val res5 = client.putObject("alaki", "1", FileInputStream("/home/reza/Downloads/ubuntu-16.04.6-server-arm64.iso"))
-    val res6 = client.getObject("alaki", "1")
-    println()
 }
 
 //TODO: check buckets name

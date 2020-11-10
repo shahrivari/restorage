@@ -65,7 +65,7 @@ class FileSystemBasedStore(val rootDir: String) {
         val file = File(getDataPathForKey(bucket, key))
         if (!file.exists())
             throw KeyNotFoundException(bucket, key)
-        FileOutputStream(file, true).use {
+        val size = FileOutputStream(file, true).use {
             ByteStreams.copy(data, it)
         }
 
@@ -77,6 +77,8 @@ class FileSystemBasedStore(val rootDir: String) {
             }
             File(getMetaPathForKey(bucket, key)).writeText(oldMeta.toJson())
         }
+
+        return@withBucket PutResult(bucket, key, size, meta.contentType)
     }
 
     fun computeMd5(bucket: String, key: String): String {
@@ -114,7 +116,7 @@ class FileSystemBasedStore(val rootDir: String) {
             val fileSize = file.length()
             val actualEnd = end ?: fileSize - 1
             val responseLength = actualEnd - actualStart + 1
-            if (responseLength <= 0)
+            if (responseLength < 0)
                 throw InvalidRangeRequest("start: $start and end: $end")
 
             val storedMeta = getMeta(bucket, key)
@@ -139,15 +141,15 @@ class FileSystemBasedStore(val rootDir: String) {
     }
 
     fun delete(bucket: String, key: String) = withBucket(bucket) {
-        deleteFileIfExists(getDataPathForKey(bucket, key))
-        deleteFileIfExists(getMetaPathForKey(bucket, key))
-        return@withBucket
-    }
+        try {
+            if (!File(getDataPathForKey(bucket, key)).delete())
+                throw KeyNotFoundException(bucket, key)
+            File(getMetaPathForKey(bucket, key)).delete()
+            return@withBucket
+        } catch (e: FileNotFoundException) {
+            throw KeyNotFoundException(bucket, key)
+        }
 
-    private fun deleteFileIfExists(path: String) {
-        val file = File(path)
-        if (file.exists())
-            file.delete()
     }
 
     private fun <R> withBucket(bucket: String, block: () -> R): R {

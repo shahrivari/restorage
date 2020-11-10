@@ -4,6 +4,7 @@ import com.github.shahrivari.restorage.commons.jacksonMapper
 import com.github.shahrivari.restorage.store.BucketInfo
 import com.github.shahrivari.restorage.store.MetaData
 import com.github.shahrivari.restorage.store.PutResult
+import okhttp3.OkHttpClient
 import okhttp3.RequestBody
 import retrofit2.Call
 import retrofit2.Retrofit
@@ -24,25 +25,20 @@ interface ReStorageRestClient {
     @DELETE(BUCKET_CRUD_PATH)
     fun deleteBucket(@Path("bucket") bucket: String): Call<Unit>
 
-    @POST(OBJECT_CRUD_PATH)
-    fun putObject(@Path("bucket") bucket: String,
-                  @Path("key") key: String,
-                  @Body bytes: RequestBody): Call<PutResult>
-
     @DELETE(OBJECT_CRUD_PATH)
     fun deleteObject(@Path("bucket") bucket: String,
-                  @Path("key") key: String): Call<Unit>
+                     @Path("key") key: String): Call<Unit>
 
     @GET("$OBJECT_CRUD_PATH/meta")
     fun getObjectMeta(@Path("bucket") bucket: String,
                       @Path("key") key: String): Call<MetaData>
 
-
     companion object {
 
-        fun getClient(address: String): ReStorageRestClient {
+        fun getClient(address: String, client: OkHttpClient): ReStorageRestClient {
             val retrofit = Retrofit.Builder()
                     .baseUrl(address)
+                    .client(client)
                     .addCallAdapterFactory(RxJava2CallAdapterFactory.create())
                     .addConverterFactory(JacksonConverterFactory.create(jacksonMapper))
                     .build()
