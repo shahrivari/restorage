@@ -29,6 +29,13 @@ class BucketTest : BaseReStorageTest() {
     }
 
     @Test
+    fun `test get bucket`() {
+        assertThrows<BucketNotFound> { client.getBucket("INVALID_BUCKET") }
+        client.createBucket(DEFAULT_BUCKET)
+        client.getBucket(DEFAULT_BUCKET)
+    }
+
+    @Test
     fun `should fail on existence of absent bucket`() {
         assertFalse { client.bucketExists(DEFAULT_BUCKET) }
     }

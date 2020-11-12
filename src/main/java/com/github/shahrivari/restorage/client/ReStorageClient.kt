@@ -13,6 +13,7 @@ import okhttp3.*
 import okio.BufferedSink
 import okio.Okio
 import retrofit2.Response
+import java.io.ByteArrayInputStream
 import java.io.InputStream
 
 class ReStorageClient(private val address: String) {
@@ -68,21 +69,35 @@ class ReStorageClient(private val address: String) {
                   key: String,
                   stream: InputStream,
                   contentType: String? = null,
-                  metaData: Map<String, String?>? = null): PutResult? =
+                  metaData: Map<String, String>? = null): PutResult? =
             doPut(bucket, key, stream, contentType, metaData, false)
+
+    fun putObject(bucket: String,
+                  key: String,
+                  value: ByteArray,
+                  contentType: String? = null,
+                  metaData: Map<String, String>? = null): PutResult? =
+            doPut(bucket, key, ByteArrayInputStream(value), contentType, metaData, false)
 
     fun appendObject(bucket: String,
                      key: String,
                      stream: InputStream,
                      contentType: String? = null,
-                     metaData: Map<String, String?>? = null): PutResult? =
+                     metaData: Map<String, String>? = null): PutResult? =
             doPut(bucket, key, stream, contentType, metaData, true)
+
+    fun appendObject(bucket: String,
+                     key: String,
+                     value: ByteArray,
+                     contentType: String? = null,
+                     metaData: Map<String, String>? = null): PutResult? =
+            doPut(bucket, key, ByteArrayInputStream(value), contentType, metaData, true)
 
     private fun doPut(bucket: String,
                       key: String,
                       stream: InputStream,
                       contentType: String? = null,
-                      metaData: Map<String, String?>? = null,
+                      metaData: Map<String, String>? = null,
                       isAppend: Boolean): PutResult? {
         val body = buildBody(stream, contentType)
         val builder = getRequestBuilder(bucket, key, metaData)
@@ -95,11 +110,11 @@ class ReStorageClient(private val address: String) {
     }
 
     private fun getRequestBuilder(bucket: String, key: String,
-                                  metaData: Map<String, String?>?): Request.Builder {
-        val builder = Request.Builder().url("$address/obj/$bucket/$key")
+                                  metaData: Map<String, String>?): Request.Builder {
+        val builder = Request.Builder().url("$address/objects/$bucket/$key")
         val headerBuilder = Headers.Builder()
         metaData?.forEach {
-            headerBuilder.add("${MetaData.OBJECT_META_HEADER_PREFIX}${it.key}", it.value ?: "")
+            headerBuilder.add("${MetaData.OBJECT_META_HEADER_PREFIX}${it.key}", it.value)
         }
         builder.headers(headerBuilder.build())
         return builder
@@ -126,7 +141,7 @@ class ReStorageClient(private val address: String) {
     fun getObject(bucket: String, key: String, start: Long? = null, end: Long? = null): GetResult? {
         if (start == null && end != null) throw  IllegalArgumentException("start is null but end is not!")
 
-        val builder = Request.Builder().url("$address/obj/$bucket/$key")
+        val builder = Request.Builder().url("$address/objects/$bucket/$key")
         if (start != null)
             builder.addHeader("Range", "bytes=$start-${end ?: ""}")
         val request: Request = builder.build()

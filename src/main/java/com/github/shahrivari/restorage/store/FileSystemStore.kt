@@ -8,7 +8,6 @@ import com.github.shahrivari.restorage.commons.fromJson
 import com.github.shahrivari.restorage.commons.toJson
 import com.google.common.hash.Hashing
 import com.google.common.io.ByteStreams
-import com.google.common.io.Files
 import java.io.File
 import java.io.FileNotFoundException
 import java.io.FileOutputStream
@@ -34,7 +33,6 @@ class FileSystemBasedStore(val rootDir: String) {
         }
     }
 
-
     private fun getDataPathForKey(bucket: String, key: String): String {
         val sha2 = Hashing.sha256().hashString(key, Charsets.UTF_8).toString()
         val sep = File.separator
@@ -55,7 +53,7 @@ class FileSystemBasedStore(val rootDir: String) {
 
     fun put(bucket: String, key: String, data: InputStream, meta: MetaData) = withBucket(bucket) {
         val size = FileOutputStream(getDataPathForKey(bucket, key), false).use {
-            ByteStreams.copy(data, it)
+            data.copyTo(it, 16 * 1024)
         }
         File(getMetaPathForKey(bucket, key)).writeText(meta.toJson())
         return@withBucket PutResult(bucket, key, size, meta.contentType)
@@ -66,24 +64,19 @@ class FileSystemBasedStore(val rootDir: String) {
         if (!file.exists())
             throw KeyNotFoundException(bucket, key)
         val size = FileOutputStream(file, true).use {
-            ByteStreams.copy(data, it)
+            data.copyTo(it, 16 * 1024)
         }
 
         // Update meta data
-        if (meta.other?.isNotEmpty() == true) {
+        if (meta.other.isNotEmpty()) {
             val oldMeta = fromJson<MetaData>(File(getMetaPathForKey(bucket, key)).readText())
-            meta.other?.forEach {
+            meta.other.forEach {
                 oldMeta.set(it.key, it.value)
             }
             File(getMetaPathForKey(bucket, key)).writeText(oldMeta.toJson())
         }
 
         return@withBucket PutResult(bucket, key, size, meta.contentType)
-    }
-
-    fun computeMd5(bucket: String, key: String): String {
-        val source = Files.asByteSource(File(getDataPathForKey(bucket, key)))
-        return source.hash(Hashing.md5()).toString().toLowerCase()
     }
 
     fun getMeta(bucket: String, key: String): MetaData = withBucket(bucket) {
@@ -132,24 +125,11 @@ class FileSystemBasedStore(val rootDir: String) {
         }
     }
 
-    fun objectExists(bucket: String, key: String) = withBucket(bucket) {
-        return@withBucket try {
-            File(getDataPathForKey(bucket, key)).exists()
-        } catch (e: FileNotFoundException) {
-            false
-        }
-    }
-
     fun delete(bucket: String, key: String) = withBucket(bucket) {
-        try {
-            if (!File(getDataPathForKey(bucket, key)).delete())
-                throw KeyNotFoundException(bucket, key)
-            File(getMetaPathForKey(bucket, key)).delete()
-            return@withBucket
-        } catch (e: FileNotFoundException) {
+        if (!File(getDataPathForKey(bucket, key)).delete())
             throw KeyNotFoundException(bucket, key)
-        }
-
+        File(getMetaPathForKey(bucket, key)).delete()
+        return@withBucket
     }
 
     private fun <R> withBucket(bucket: String, block: () -> R): R {

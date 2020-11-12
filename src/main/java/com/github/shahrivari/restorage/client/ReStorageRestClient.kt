@@ -13,7 +13,7 @@ import retrofit2.converter.jackson.JacksonConverterFactory
 import retrofit2.http.*
 
 private const val BUCKET_CRUD_PATH = "buckets/{bucket}"
-private const val OBJECT_CRUD_PATH = "obj/{bucket}/{key}"
+private const val OBJECT_CRUD_PATH = "objects/{bucket}/{key}"
 
 interface ReStorageRestClient {
     @GET(BUCKET_CRUD_PATH)

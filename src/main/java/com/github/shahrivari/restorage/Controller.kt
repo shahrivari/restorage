@@ -10,7 +10,7 @@ class Controller(private val app: Javalin, private val store: FileSystemBasedSto
 
     companion object {
         const val BUCKET_CRUD_PATH = "/buckets/:bucket"
-        const val OBJECT_CRUD_PATH = "/obj/:bucket/:key"
+        const val OBJECT_CRUD_PATH = "/objects/:bucket/:key"
     }
 
     fun Context.bucket() = pathParam("bucket")
@@ -20,13 +20,13 @@ class Controller(private val app: Javalin, private val store: FileSystemBasedSto
 
         app.post(BUCKET_CRUD_PATH) { ctx ->
             val result = store.createBucket(ctx.bucket())
-            ctx.status(200)
             ctx.json(result)
         }
 
         app.get(BUCKET_CRUD_PATH) { ctx ->
             val result = store.getBucketInfo(ctx.bucket())
-            ctx.status(if (result.isPresent) 200 else 404)
+            if(!result.isPresent)
+                throw BucketNotFound(ctx.bucket())
             result.ifPresent { ctx.json(it) }
         }
 
@@ -70,7 +70,6 @@ class Controller(private val app: Javalin, private val store: FileSystemBasedSto
             }
 
             val result = store.get(ctx.bucket(), ctx.key(), start, end)
-            ctx.result(result.stream)
             ctx.header("Content-Encoding", "identity")
             result.metaData?.fillToHeaders(ctx)
 
@@ -78,6 +77,8 @@ class Controller(private val app: Javalin, private val store: FileSystemBasedSto
                 ctx.status(200)
             else
                 ctx.status(206)
+
+            ctx.result(result.stream)
         }
 
         app.get("$OBJECT_CRUD_PATH/meta") { ctx ->
@@ -106,8 +107,5 @@ class Controller(private val app: Javalin, private val store: FileSystemBasedSto
         app.after { ctx ->
             ctx.res.setHeader("Server", "ReStorage")
         }
-
     }
-
-
 }

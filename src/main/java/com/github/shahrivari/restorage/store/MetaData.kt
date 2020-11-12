@@ -17,7 +17,7 @@ data class MetaData(var bucket: String,
                     var contentType: String? = null,
                     @JsonIgnore
                     var lastModified: Long? = null,
-                    var other: MutableMap<String, String?>? = null) {
+                    var other: MutableMap<String, String> = ConcurrentHashMap()) {
     companion object {
         const val OBJECT_META_HEADER_PREFIX = "X-ReStorage-Object-Meta-"
 
@@ -39,7 +39,7 @@ data class MetaData(var bucket: String,
             metaData.lastModified = response.header("Last-Modified")?.let { HttpDate.parse(it).time }
 
             response.headers().names().filter { it.startsWith(OBJECT_META_HEADER_PREFIX) }.forEach {
-                metaData.set(it.removePrefix(OBJECT_META_HEADER_PREFIX), response.header(it))
+                metaData.set(it.removePrefix(OBJECT_META_HEADER_PREFIX), response.header(it) ?: "")
             }
 
             return metaData
@@ -47,14 +47,11 @@ data class MetaData(var bucket: String,
     }
 
     @Synchronized
-    fun set(key: String, value: String?) {
-        if (other == null)
-            other = ConcurrentHashMap()
-        other?.put(key, value)
+    fun set(key: String, value: String) {
+        other[key] = value
     }
 
-    fun get(key: String) =
-            other?.get(key)
+    fun get(key: String) = other[key]
 
     fun fillToHeaders(ctx: Context) {
         ctx.contentType(contentType ?: "application/octet-stream")
@@ -63,8 +60,8 @@ data class MetaData(var bucket: String,
             ctx.res.setDateHeader("Last-Modified", it)
             ctx.res.setIntHeader("Age", ((System.currentTimeMillis() - it) / 1000).toInt())
         }
-        other?.forEach {
-            ctx.header("$OBJECT_META_HEADER_PREFIX${it.key}", it.value ?: "")
+        other.forEach {
+            ctx.header("$OBJECT_META_HEADER_PREFIX${it.key}", it.value)
         }
     }
 
