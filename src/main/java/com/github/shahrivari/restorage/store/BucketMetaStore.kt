@@ -6,7 +6,6 @@ import com.github.shahrivari.restorage.commons.fromJson
 import com.github.shahrivari.restorage.commons.toJson
 import com.google.common.cache.CacheBuilder
 import com.google.common.cache.CacheLoader
-import com.google.common.hash.Hashing
 import java.io.File
 import java.io.FileOutputStream
 import java.util.*
@@ -18,34 +17,39 @@ class BucketMetaDataStore(val rootDir: String) {
     private val bucketCache = CacheBuilder.newBuilder()
             .maximumSize(1000)
             .build<String, Optional<BucketInfo>>(CacheLoader.from { bucket: String? ->
-                return@from File(getBucketFilePath(bucket!!)).useLines { lines ->
-                    val info = lines.map { fromJson<BucketInfo>(it) }.firstOrNull { it.name == bucket }
-                    return@useLines Optional.ofNullable(info)
-                }
+                val file = File(getBucketFilePath(bucket ?: error("Bucket is null!")))
+                if (!file.exists()) return@from Optional.empty()
+                return@from Optional.ofNullable(fromJson<BucketInfo>(file.readText()))
             })
 
 
     private fun getBucketFilePath(bucket: String): String {
-        val bucketSha1 = Hashing.sha256().hashString(bucket, Charsets.UTF_8).toString()
-        return "$rootDir${File.separator}${bucketSha1.substring(0, 2)}${File.separator}buckets"
+        require(bucket.all { it.isLetterOrDigit() || "_-.=".contains(it) }) {
+            "Bucket name must be alphanumerical or any of {_, -, ., =} but is: $bucket"
+        }
+
+        return DirectoryCalculator.getTwoNestedLevels(rootDir, bucket) + ".bucket"
     }
 
     fun createBucket(bucket: String): BucketInfo {
         if (bucketExists(bucket))
             throw BucketAlreadyExists(bucket)
 
-        bucketCache.invalidate(bucket)
         val bucketInfo = BucketInfo(bucket)
-        FileOutputStream(getBucketFilePath(bucket), true).bufferedWriter().use {
-            it.appendLine(bucketInfo.toJson())
+        bucketCache.put(bucket, Optional.of(bucketInfo))
+        synchronized(getBucket(bucket)) {
+            FileOutputStream(getBucketFilePath(bucket)).writer(Charsets.UTF_8).use {
+                it.write(bucketInfo.toJson())
+            }
         }
+
         return bucketInfo
     }
 
-    fun bucketExists(bucket: String): Boolean =
-            getBucketInfo(bucket).isPresent
+    private fun bucketExists(bucket: String): Boolean =
+            getBucket(bucket).isPresent
 
-    fun getBucketInfo(bucket: String): Optional<BucketInfo> =
+    fun getBucket(bucket: String): Optional<BucketInfo> =
             bucketCache.get(bucket)
 
 
@@ -53,14 +57,9 @@ class BucketMetaDataStore(val rootDir: String) {
         if (!bucketExists(bucket))
             throw BucketNotFound(bucket)
 
-        bucketCache.invalidate(bucket)
-        val file = File(getBucketFilePath(bucket))
-        val newList = file.useLines { lines ->
-            return@useLines lines.map { fromJson<BucketInfo>(it) }.filter { it.name != bucket }.toList()
-        }
-
-        file.outputStream().bufferedWriter().use { writer ->
-            newList.forEach { writer.appendLine(it.toJson()) }
+        synchronized(getBucket(bucket)) {
+            File(getBucketFilePath(bucket)).delete()
+            bucketCache.invalidate(bucket)
         }
     }
 

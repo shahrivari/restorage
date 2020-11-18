@@ -1,8 +1,5 @@
 package com.github.shahrivari.restorage.client
 
-import com.github.shahrivari.restorage.BucketAlreadyExists
-import com.github.shahrivari.restorage.BucketNotFound
-import com.github.shahrivari.restorage.KeyNotFoundException
 import com.github.shahrivari.restorage.ReStorageException
 import com.github.shahrivari.restorage.commons.fromJson
 import com.github.shahrivari.restorage.store.BucketInfo

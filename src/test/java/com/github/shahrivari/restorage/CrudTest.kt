@@ -5,6 +5,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.io.ByteArrayInputStream
 import java.util.*
+import kotlin.concurrent.thread
 
 class CrudTest : BaseReStorageTest() {
     val defaultKey = "1"
@@ -165,6 +166,19 @@ class CrudTest : BaseReStorageTest() {
         result = client.getObject(DEFAULT_BUCKET, defaultKey)
         Assertions.assertThat(meta).isEqualTo(result?.metaData?.other)
         Assertions.assertThat(result?.getAllBytes()).isEqualTo(ByteArray(0))
+    }
+
+    @Test
+    fun `test concurrent put`() {
+        val bigValue = ByteArray(10_000_000) { 'a'.toByte() }
+        thread {
+            client.putObject(DEFAULT_BUCKET, defaultKey, ByteArrayInputStream(bigValue))
+        }
+        Thread.sleep(200)
+//        client.putObject(DEFAULT_BUCKET, defaultKey, "Salam kooni!".toByteArray())
+        var result = client.getObject(DEFAULT_BUCKET, defaultKey)?.getAllBytes()
+        println(result?.size)
+        Assertions.assertThat(Arrays.equals(bigValue, result)).isTrue()
     }
 
 }
