@@ -1,12 +1,38 @@
 package com.github.shahrivari.restorage
 
-import org.junit.jupiter.api.BeforeEach
-import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertThrows
+import com.github.shahrivari.restorage.client.ReStorageClient
+import org.junit.jupiter.api.*
+import java.io.File
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-class BucketTest : BaseReStorageTest() {
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+class BucketTest {
+
+    companion object {
+        const val port = 8000
+        const val dir = "/dev/shm/restorage_unit_tests"
+        lateinit var app: ReStorageApp
+        const val DEFAULT_BUCKET = "alaki"
+
+        val client by lazy { ReStorageClient("http://localhost:$port") }
+
+    }
+
+    @BeforeAll
+    fun startServer() {
+        File(CrudTest.dir).deleteRecursively()
+        CrudTest.app = ReStorageApp().runOnPort(CrudTest.port, CrudTest.dir)
+        Runtime.getRuntime().addShutdownHook(Thread { CrudTest.app.stop() })
+    }
+
+    @AfterAll
+    fun dispose() {
+        File(CrudTest.dir).deleteRecursively()
+        CrudTest.app.stop()
+    }
+
+
     @BeforeEach
     private fun resetDefaultBucket() {
         if (client.bucketExists(DEFAULT_BUCKET))

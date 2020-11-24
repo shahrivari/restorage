@@ -6,17 +6,24 @@ import com.github.shahrivari.restorage.KeyNotFoundException
 import com.github.shahrivari.restorage.commons.RangeStream
 import com.github.shahrivari.restorage.commons.fromJson
 import com.github.shahrivari.restorage.commons.toJson
+import com.google.common.cache.CacheBuilder
 import com.google.common.hash.Hashing
-import java.io.File
-import java.io.FileNotFoundException
-import java.io.FileOutputStream
-import java.io.InputStream
+import java.io.*
+import java.nio.channels.Channels
 import java.nio.file.attribute.BasicFileAttributes
 import java.util.*
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.locks.ReentrantReadWriteLock
+import kotlin.concurrent.read
+import kotlin.concurrent.write
 
 
 class FileSystemBasedStore(val rootDir: String) {
     private val bucketMetaDataStore = BucketMetaDataStore(rootDir)
+
+    private val lockCache = CacheBuilder.newBuilder()
+            .expireAfterAccess(5, TimeUnit.SECONDS)
+            .build<String, ReentrantReadWriteLock>()
 
     init {
         val sep = File.separator
@@ -32,12 +39,6 @@ class FileSystemBasedStore(val rootDir: String) {
         }
     }
 
-    private fun getDataPathForKey(bucket: String, key: String): String =
-            "${DirectoryCalculator.getTwoNestedLevels(rootDir, key)}.$bucket.object"
-
-    private fun getMetaPathForKey(bucket: String, key: String): String =
-            "${DirectoryCalculator.getTwoNestedLevels(rootDir, key)}.$bucket.meta"
-
     fun createBucket(bucket: String) =
             bucketMetaDataStore.createBucket(bucket)
 
@@ -48,11 +49,13 @@ class FileSystemBasedStore(val rootDir: String) {
             bucketMetaDataStore.deleteBucket(bucket)
 
     fun put(bucket: String, key: String, data: InputStream, meta: MetaData) = withBucket(bucket) {
-        val size = FileOutputStream(getDataPathForKey(bucket, key), false).use {
-            data.copyTo(it, 16 * 1024)
+        return@withBucket lockObjectForWrite(bucket, key) {
+            val size = FileOutputStream(getDataPathForKey(bucket, key), false).use {
+                data.copyTo(it, 16 * 1024)
+            }
+            File(getMetaPathForKey(bucket, key)).writeText(meta.toJson())
+            return@lockObjectForWrite PutResult(bucket, key, size, meta.contentType)
         }
-        File(getMetaPathForKey(bucket, key)).writeText(meta.toJson())
-        return@withBucket PutResult(bucket, key, size, meta.contentType)
     }
 
     fun append(bucket: String, key: String, data: InputStream, meta: MetaData) = withBucket(
@@ -60,20 +63,23 @@ class FileSystemBasedStore(val rootDir: String) {
         val file = File(getDataPathForKey(bucket, key))
         if (!file.exists())
             throw KeyNotFoundException(bucket, key)
-        val size = FileOutputStream(file, true).use {
-            data.copyTo(it, 16 * 1024)
-        }
 
-        // Update meta data
-        if (meta.other.isNotEmpty()) {
-            val oldMeta = fromJson<MetaData>(File(getMetaPathForKey(bucket, key)).readText())
-            meta.other.forEach {
-                oldMeta.set(it.key, it.value)
+        return@withBucket lockObjectForWrite(bucket, key) {
+            val size = FileOutputStream(file, true).use {
+                data.copyTo(it, 16 * 1024)
             }
-            File(getMetaPathForKey(bucket, key)).writeText(oldMeta.toJson())
-        }
 
-        return@withBucket PutResult(bucket, key, size, meta.contentType)
+            // Update meta data
+            if (meta.other.isNotEmpty()) {
+                val oldMeta = fromJson<MetaData>(File(getMetaPathForKey(bucket, key)).readText())
+                meta.other.forEach {
+                    oldMeta.set(it.key, it.value)
+                }
+                File(getMetaPathForKey(bucket, key)).writeText(oldMeta.toJson())
+            }
+
+            return@lockObjectForWrite PutResult(bucket, key, size, meta.contentType)
+        }
     }
 
     fun getMeta(bucket: String, key: String): MetaData = withBucket(bucket) {
@@ -125,15 +131,32 @@ class FileSystemBasedStore(val rootDir: String) {
     }
 
     fun delete(bucket: String, key: String) = withBucket(bucket) {
-        if (!File(getDataPathForKey(bucket, key)).delete())
-            throw KeyNotFoundException(bucket, key)
-        File(getMetaPathForKey(bucket, key)).delete()
+        lockObjectForWrite(bucket, key) {
+            if (!File(getDataPathForKey(bucket, key)).delete())
+                throw KeyNotFoundException(bucket, key)
+            File(getMetaPathForKey(bucket, key)).delete()
+        }
         return@withBucket
     }
 
+    private fun getDataPathForKey(bucket: String, key: String): String =
+            "${DirectoryCalculator.getTwoNestedLevels(rootDir, key)}.$bucket.object"
+
+    private fun getMetaPathForKey(bucket: String, key: String): String =
+            "${DirectoryCalculator.getTwoNestedLevels(rootDir, key)}.$bucket.meta"
+
     private fun <R> withBucket(bucket: String, block: () -> R): R {
-        if (!getBucketInfo(bucket).isPresent)
+        val bucketInfo = getBucketInfo(bucket)
+        if (!bucketInfo.isPresent)
             throw BucketNotFound(bucket)
-        return block()
+        return bucketInfo.get().lock.read {
+            block.invoke()
+        }
     }
+
+    private fun <R> lockObjectForWrite(bucket: String, key: String, block: () -> R): R {
+        val lock = lockCache.get("$bucket:$key") { ReentrantReadWriteLock() }
+        return lock.write(block)
+    }
+
 }

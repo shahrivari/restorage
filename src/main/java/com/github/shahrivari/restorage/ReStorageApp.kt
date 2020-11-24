@@ -7,19 +7,29 @@ import com.github.ajalt.clikt.parameters.types.int
 import com.github.shahrivari.restorage.client.ReStorageClient
 import com.github.shahrivari.restorage.store.FileSystemBasedStore
 import io.javalin.Javalin
+import mu.KotlinLogging
+import org.eclipse.jetty.server.Server
+import org.eclipse.jetty.util.thread.QueuedThreadPool
 import java.io.FileInputStream
 
 class ReStorageApp : CliktCommand() {
     private val port: Int by option(help = "Port to listen").int().default(7000)
+    private val threads: Int by option(help = "Executor threads").int().default(256)
     private val root: String by option(help = "Root directory of storage").default("/dev/shm/store")
     private lateinit var app: Javalin
+    private val logger = KotlinLogging.logger {}
 
     override fun run() {
-        runOnPort(port, root)
+        runOnPort(port, root, threads)
     }
 
-    fun runOnPort(port: Int, root: String): ReStorageApp {
-        app = Javalin.create()
+    fun runOnPort(port: Int, root: String, threads: Int = 256): ReStorageApp {
+        logger.info { "Starting app on port: $port, dir: $root" }
+        app = Javalin.create { config ->
+            config.server {
+                Server(QueuedThreadPool(threads))
+            }
+        }
         val store = FileSystemBasedStore(root)
         val controller = Controller(app, store)
         controller.wireUp()
@@ -36,5 +46,4 @@ fun main(args: Array<String>) {
     ReStorageApp().main(args)
 }
 
-//TODO: check buckets name
 //TODO: lock buckets and keys

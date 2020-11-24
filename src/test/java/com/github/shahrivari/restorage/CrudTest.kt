@@ -1,13 +1,40 @@
 package com.github.shahrivari.restorage
 
+import com.github.shahrivari.restorage.client.ReStorageClient
+import com.github.shahrivari.restorage.commons.randomBytes
 import org.assertj.core.api.Assertions
-import org.junit.jupiter.api.BeforeEach
-import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.*
 import java.io.ByteArrayInputStream
+import java.io.File
 import java.util.*
 import kotlin.concurrent.thread
 
-class CrudTest : BaseReStorageTest() {
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+class CrudTest {
+    companion object {
+        const val port = 8000
+        const val dir = "/dev/shm/restorage_unit_tests"
+        lateinit var app: ReStorageApp
+        const val DEFAULT_BUCKET = "alaki"
+
+        val client by lazy { ReStorageClient("http://localhost:$port") }
+
+    }
+
+    @BeforeAll
+    fun startServer() {
+        File(dir).deleteRecursively()
+        app = ReStorageApp().runOnPort(port, dir)
+        Runtime.getRuntime().addShutdownHook(Thread { app.stop() })
+    }
+
+    @AfterAll
+    fun dispose() {
+        File(dir).deleteRecursively()
+        app.stop()
+    }
+
+
     val defaultKey = "1"
     val defaultValue = "0123456789".repeat(100).toByteArray()
 
@@ -170,15 +197,25 @@ class CrudTest : BaseReStorageTest() {
 
     @Test
     fun `test concurrent put`() {
-        val bigValue = ByteArray(10_000_000) { 'a'.toByte() }
-        thread {
-            client.putObject(DEFAULT_BUCKET, defaultKey, ByteArrayInputStream(bigValue))
+        val bigValue = randomBytes(10_000_000)
+        val thread = thread {
+            client.putObject(DEFAULT_BUCKET, defaultKey, bigValue)
         }
-        Thread.sleep(200)
-//        client.putObject(DEFAULT_BUCKET, defaultKey, "Salam kooni!".toByteArray())
-        var result = client.getObject(DEFAULT_BUCKET, defaultKey)?.getAllBytes()
-        println(result?.size)
-        Assertions.assertThat(Arrays.equals(bigValue, result)).isTrue()
+        val smallValue = randomBytes(5000)
+        client.putObject(DEFAULT_BUCKET, defaultKey, smallValue)
+        thread.join()
+        val result = client.getObject(DEFAULT_BUCKET, defaultKey)?.getAllBytes()
+        Assertions.assertThat(
+                listOf(bigValue, smallValue).any { Arrays.equals(it, result) }).isTrue()
+    }
+
+    @Test
+    fun `test multi concurrent put`() {
+        val values = (0..40).map { randomBytes(1_000_000) }.toList()
+        val threads = values.map { thread { client.putObject(DEFAULT_BUCKET, defaultKey, it) } }
+        threads.forEach { it.join() }
+        val result = client.getObject(DEFAULT_BUCKET, defaultKey)?.getAllBytes()
+        Assertions.assertThat(values.any { Arrays.equals(it, result) }).isTrue()
     }
 
 }
