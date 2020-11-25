@@ -45,5 +45,3 @@ class ReStorageApp : CliktCommand() {
 fun main(args: Array<String>) {
     ReStorageApp().main(args)
 }
-
-//TODO: lock buckets and keys
