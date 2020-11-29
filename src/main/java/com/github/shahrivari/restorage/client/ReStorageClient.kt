@@ -1,6 +1,6 @@
 package com.github.shahrivari.restorage.client
 
-import com.github.shahrivari.restorage.ReStorageException
+import com.github.shahrivari.restorage.exception.ReStorageException
 import com.github.shahrivari.restorage.commons.fromJson
 import com.github.shahrivari.restorage.store.GetResult
 import com.github.shahrivari.restorage.store.MetaData

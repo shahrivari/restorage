@@ -1,8 +1,8 @@
 package com.github.shahrivari.restorage.store.fs
 
 import com.fasterxml.jackson.annotation.JsonIgnore
-import com.github.shahrivari.restorage.BucketAlreadyExists
-import com.github.shahrivari.restorage.BucketNotFound
+import com.github.shahrivari.restorage.exception.BucketAlreadyExists
+import com.github.shahrivari.restorage.exception.BucketNotFound
 import com.github.shahrivari.restorage.commons.fromJson
 import com.github.shahrivari.restorage.commons.toJson
 import com.google.common.cache.CacheBuilder

@@ -1,6 +1,6 @@
 package com.github.shahrivari.restorage.commons;
 
-import com.github.shahrivari.restorage.InvalidRangeRequest;
+import com.github.shahrivari.restorage.exception.InvalidRangeRequest;
 
 import java.util.ArrayList;
 import java.util.List;

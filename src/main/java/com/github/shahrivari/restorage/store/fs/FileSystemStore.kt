@@ -1,11 +1,9 @@
 package com.github.shahrivari.restorage.store.fs
 
-import com.github.shahrivari.restorage.BucketNotFound
-import com.github.shahrivari.restorage.InvalidRangeRequest
-import com.github.shahrivari.restorage.KeyNotFoundException
-import com.github.shahrivari.restorage.commons.RangeStream
-import com.github.shahrivari.restorage.commons.fromJson
-import com.github.shahrivari.restorage.commons.toJson
+import com.github.shahrivari.restorage.commons.*
+import com.github.shahrivari.restorage.exception.BucketNotFound
+import com.github.shahrivari.restorage.exception.InvalidRangeRequest
+import com.github.shahrivari.restorage.exception.KeyNotFoundException
 import com.github.shahrivari.restorage.store.GetResult
 import com.github.shahrivari.restorage.store.MetaData
 import com.github.shahrivari.restorage.store.PutResult
@@ -50,7 +48,8 @@ class FileSystemStore(val rootDir: String) : Store {
     override fun deleteBucket(bucket: String) =
             bucketMetaDataStore.deleteBucket(bucket)
 
-    override fun put(bucket: String, key: String, data: InputStream, meta: MetaData) = withBucket(bucket) {
+    override fun put(bucket: String, key: String, data: InputStream, meta: MetaData) = withBucket(
+            bucket) {
         return@withBucket lockObjectForWrite(bucket, key) {
             val size = FileOutputStream(getDataPathForKey(bucket, key), false).use {
                 data.copyTo(it, 16 * 1024)
@@ -60,7 +59,8 @@ class FileSystemStore(val rootDir: String) : Store {
         }
     }
 
-    override fun append(bucket: String, key: String, data: InputStream, meta: MetaData) = withBucket(
+    override fun append(bucket: String, key: String, data: InputStream,
+                        meta: MetaData) = withBucket(
             bucket) {
         val file = File(getDataPathForKey(bucket, key))
         if (!file.exists())
@@ -103,11 +103,14 @@ class FileSystemStore(val rootDir: String) : Store {
                      end: Long?): GetResult = withBucket(bucket) {
         // Check for invalid ranges
         if (start != null && start < 0)
-            throw InvalidRangeRequest("start: $start and end: $end")
+            throw InvalidRangeRequest(
+                    "start: $start and end: $end")
         if (end != null && end < 0)
-            throw InvalidRangeRequest("start: $start and end: $end")
+            throw InvalidRangeRequest(
+                    "start: $start and end: $end")
         if (start == null && end != null)
-            throw InvalidRangeRequest("start: $start and end: $end")
+            throw InvalidRangeRequest(
+                    "start: $start and end: $end")
 
         try {
             val file = File(getDataPathForKey(bucket, key))
@@ -117,7 +120,8 @@ class FileSystemStore(val rootDir: String) : Store {
             val actualEnd = end ?: fileSize - 1
             val responseLength = actualEnd - actualStart + 1
             if (responseLength < 0)
-                throw InvalidRangeRequest("start: $start and end: $end")
+                throw InvalidRangeRequest(
+                        "start: $start and end: $end")
 
             val storedMeta = getMeta(bucket, key)
             storedMeta.contentLength = responseLength

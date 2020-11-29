@@ -1,6 +1,9 @@
 package com.github.shahrivari.restorage
 
+import com.github.shahrivari.restorage.exception.InvalidRangeRequest
 import com.github.shahrivari.restorage.commons.RangeHeader
+import com.github.shahrivari.restorage.exception.BucketNotFound
+import com.github.shahrivari.restorage.exception.ReStorageException
 import com.github.shahrivari.restorage.store.fs.FileSystemStore
 import com.github.shahrivari.restorage.store.MetaData
 import io.javalin.Javalin
@@ -64,7 +67,8 @@ class Controller(private val app: Javalin, private val store: FileSystemStore) {
             if (rangeHeader != null) {
                 val ranges = RangeHeader.decodeRange(rangeHeader)
                 if (ranges.size != 1)
-                    throw InvalidRangeRequest(rangeHeader)
+                    throw InvalidRangeRequest(
+                            rangeHeader)
                 start = ranges.first().start
                 end = ranges.first().end
             }

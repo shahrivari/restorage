@@ -2,6 +2,8 @@ package com.github.shahrivari.restorage
 
 import com.github.shahrivari.restorage.client.ReStorageClient
 import com.github.shahrivari.restorage.commons.randomBytes
+import com.github.shahrivari.restorage.exception.BucketNotFound
+import com.github.shahrivari.restorage.exception.KeyNotFoundException
 import org.assertj.core.api.Assertions
 import org.junit.jupiter.api.*
 import java.io.ByteArrayInputStream

@@ -1,6 +1,8 @@
 package com.github.shahrivari.restorage
 
 import com.github.shahrivari.restorage.client.ReStorageClient
+import com.github.shahrivari.restorage.exception.BucketAlreadyExists
+import com.github.shahrivari.restorage.exception.BucketNotFound
 import org.junit.jupiter.api.*
 import java.io.File
 import kotlin.test.assertFalse
