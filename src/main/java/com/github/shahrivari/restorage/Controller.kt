@@ -1,12 +1,12 @@
 package com.github.shahrivari.restorage
 
 import com.github.shahrivari.restorage.commons.RangeHeader
-import com.github.shahrivari.restorage.store.FileSystemBasedStore
+import com.github.shahrivari.restorage.store.fs.FileSystemStore
 import com.github.shahrivari.restorage.store.MetaData
 import io.javalin.Javalin
 import io.javalin.http.Context
 
-class Controller(private val app: Javalin, private val store: FileSystemBasedStore) {
+class Controller(private val app: Javalin, private val store: FileSystemStore) {
 
     companion object {
         const val BUCKET_CRUD_PATH = "/buckets/:bucket"

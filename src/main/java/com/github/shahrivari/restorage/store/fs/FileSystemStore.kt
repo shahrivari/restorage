@@ -1,4 +1,4 @@
-package com.github.shahrivari.restorage.store
+package com.github.shahrivari.restorage.store.fs
 
 import com.github.shahrivari.restorage.BucketNotFound
 import com.github.shahrivari.restorage.InvalidRangeRequest
@@ -6,10 +6,12 @@ import com.github.shahrivari.restorage.KeyNotFoundException
 import com.github.shahrivari.restorage.commons.RangeStream
 import com.github.shahrivari.restorage.commons.fromJson
 import com.github.shahrivari.restorage.commons.toJson
+import com.github.shahrivari.restorage.store.GetResult
+import com.github.shahrivari.restorage.store.MetaData
+import com.github.shahrivari.restorage.store.PutResult
+import com.github.shahrivari.restorage.store.Store
 import com.google.common.cache.CacheBuilder
-import com.google.common.hash.Hashing
 import java.io.*
-import java.nio.channels.Channels
 import java.nio.file.attribute.BasicFileAttributes
 import java.util.*
 import java.util.concurrent.TimeUnit
@@ -18,7 +20,7 @@ import kotlin.concurrent.read
 import kotlin.concurrent.write
 
 
-class FileSystemBasedStore(val rootDir: String) {
+class FileSystemStore(val rootDir: String) : Store {
     private val bucketMetaDataStore = BucketMetaDataStore(rootDir)
 
     private val lockCache = CacheBuilder.newBuilder()
@@ -39,16 +41,16 @@ class FileSystemBasedStore(val rootDir: String) {
         }
     }
 
-    fun createBucket(bucket: String) =
+    override fun createBucket(bucket: String) =
             bucketMetaDataStore.createBucket(bucket)
 
-    fun getBucketInfo(bucket: String): Optional<BucketInfo> =
+    override fun getBucketInfo(bucket: String): Optional<BucketInfo> =
             bucketMetaDataStore.getBucket(bucket)
 
-    fun deleteBucket(bucket: String) =
+    override fun deleteBucket(bucket: String) =
             bucketMetaDataStore.deleteBucket(bucket)
 
-    fun put(bucket: String, key: String, data: InputStream, meta: MetaData) = withBucket(bucket) {
+    override fun put(bucket: String, key: String, data: InputStream, meta: MetaData) = withBucket(bucket) {
         return@withBucket lockObjectForWrite(bucket, key) {
             val size = FileOutputStream(getDataPathForKey(bucket, key), false).use {
                 data.copyTo(it, 16 * 1024)
@@ -58,7 +60,7 @@ class FileSystemBasedStore(val rootDir: String) {
         }
     }
 
-    fun append(bucket: String, key: String, data: InputStream, meta: MetaData) = withBucket(
+    override fun append(bucket: String, key: String, data: InputStream, meta: MetaData) = withBucket(
             bucket) {
         val file = File(getDataPathForKey(bucket, key))
         if (!file.exists())
@@ -82,7 +84,7 @@ class FileSystemBasedStore(val rootDir: String) {
         }
     }
 
-    fun getMeta(bucket: String, key: String): MetaData = withBucket(bucket) {
+    override fun getMeta(bucket: String, key: String): MetaData = withBucket(bucket) {
         return@withBucket try {
             val meta = fromJson<MetaData>(File(getMetaPathForKey(bucket, key)).readText())
             val file = File(getDataPathForKey(bucket, key))
@@ -97,8 +99,8 @@ class FileSystemBasedStore(val rootDir: String) {
         }
     }
 
-    fun get(bucket: String, key: String, start: Long? = null,
-            end: Long? = null): GetResult = withBucket(bucket) {
+    override fun get(bucket: String, key: String, start: Long?,
+                     end: Long?): GetResult = withBucket(bucket) {
         // Check for invalid ranges
         if (start != null && start < 0)
             throw InvalidRangeRequest("start: $start and end: $end")
@@ -130,7 +132,7 @@ class FileSystemBasedStore(val rootDir: String) {
         }
     }
 
-    fun delete(bucket: String, key: String) = withBucket(bucket) {
+    override fun delete(bucket: String, key: String) = withBucket(bucket) {
         lockObjectForWrite(bucket, key) {
             if (!File(getDataPathForKey(bucket, key)).delete())
                 throw KeyNotFoundException(bucket, key)

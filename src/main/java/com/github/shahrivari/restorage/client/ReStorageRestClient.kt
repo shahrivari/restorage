@@ -1,16 +1,17 @@
 package com.github.shahrivari.restorage.client
 
 import com.github.shahrivari.restorage.commons.jacksonMapper
-import com.github.shahrivari.restorage.store.BucketInfo
 import com.github.shahrivari.restorage.store.MetaData
-import com.github.shahrivari.restorage.store.PutResult
+import com.github.shahrivari.restorage.store.fs.BucketInfo
 import okhttp3.OkHttpClient
-import okhttp3.RequestBody
 import retrofit2.Call
 import retrofit2.Retrofit
 import retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory
 import retrofit2.converter.jackson.JacksonConverterFactory
-import retrofit2.http.*
+import retrofit2.http.DELETE
+import retrofit2.http.GET
+import retrofit2.http.POST
+import retrofit2.http.Path
 
 private const val BUCKET_CRUD_PATH = "buckets/{bucket}"
 private const val OBJECT_CRUD_PATH = "objects/{bucket}/{key}"

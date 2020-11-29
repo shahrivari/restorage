@@ -1,4 +1,4 @@
-package com.github.shahrivari.restorage.store
+package com.github.shahrivari.restorage.store.fs
 
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.github.shahrivari.restorage.BucketAlreadyExists
@@ -6,13 +6,11 @@ import com.github.shahrivari.restorage.BucketNotFound
 import com.github.shahrivari.restorage.commons.fromJson
 import com.github.shahrivari.restorage.commons.toJson
 import com.google.common.cache.CacheBuilder
-import com.google.common.cache.CacheLoader
 import java.io.File
 import java.io.FileOutputStream
 import java.util.*
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantReadWriteLock
-import kotlin.concurrent.read
 import kotlin.concurrent.write
 
 data class BucketInfo(val name: String,

@@ -1,4 +1,4 @@
-package com.github.shahrivari.restorage.store
+package com.github.shahrivari.restorage.store.fs
 
 import com.google.common.hash.Hashing
 import java.io.File
