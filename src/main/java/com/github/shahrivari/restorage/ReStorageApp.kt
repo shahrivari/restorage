@@ -4,6 +4,7 @@ import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.int
+import com.github.shahrivari.restorage.exception.ReStorageException
 import com.github.shahrivari.restorage.store.fs.FileSystemStore
 import io.javalin.Javalin
 import mu.KotlinLogging
@@ -29,14 +30,47 @@ class ReStorageApp : CliktCommand() {
             }
         }
         val store = FileSystemStore(root)
-        val controller = Controller(app, store)
-        controller.wireUp()
+        val controller = Controller(store)
+        wireUp(controller)
         app = app.start(port)
         return this
     }
 
     fun stop() {
         app.stop()
+    }
+
+    private fun wireUp(controller: Controller) {
+        app.post(Controller.BUCKET_CRUD_PATH) { ctx -> controller.createBucket(ctx) }
+
+        app.get(Controller.BUCKET_CRUD_PATH) { ctx -> controller.getBucketInfo(ctx) }
+
+        app.head(Controller.BUCKET_CRUD_PATH) { ctx -> controller.headBucket(ctx) }
+
+        app.delete(Controller.BUCKET_CRUD_PATH) { ctx -> controller.deleteBucket(ctx) }
+
+        app.post(Controller.OBJECT_CRUD_PATH) { ctx -> controller.putObject(ctx) }
+
+        app.put(Controller.OBJECT_CRUD_PATH) { ctx -> controller.putChunk(ctx) }
+
+        app.get(Controller.OBJECT_CRUD_PATH) { ctx -> controller.getObject(ctx) }
+
+        app.get("${Controller.OBJECT_CRUD_PATH}/meta") { ctx -> controller.getObjectMeta(ctx) }
+
+        app.head(Controller.OBJECT_CRUD_PATH) { ctx -> controller.headObject(ctx) }
+
+        app.delete(Controller.OBJECT_CRUD_PATH) { ctx -> controller.deleteObject(ctx) }
+
+
+        app.exception(ReStorageException::class.java) { e, ctx ->
+            ctx.status(e.statusCode)
+            ctx.json(mapOf("errorCode" to e.errorCode, "message" to e.message))
+        }
+
+        app.after { ctx ->
+            ctx.res.setHeader("Server", "ReStorage")
+        }
+
     }
 }
 

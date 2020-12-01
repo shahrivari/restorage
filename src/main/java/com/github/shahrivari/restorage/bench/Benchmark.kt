@@ -48,9 +48,14 @@ class Benchmark : CliktCommand() {
                     if (key > requests) break
                     if (key % reportInterval == 0 && watch.elapsed(TimeUnit.SECONDS) > 0) {
                         val speed = key / watch.elapsed(TimeUnit.SECONDS)
-                        logger.info { "Speed: $speed rps; Requests performed: ${String.format("%,d",key)}" }
+                        val formatted = String.format("%,d", key)
+                        logger.info { "Speed: $speed rps; Requests performed: $formatted" }
                     }
-                    client.putObject(bucket, key.toString(), values.random())
+                    try {
+                        client.putObject(bucket, key.toString(), values.random())
+                    } catch (e: Exception) {
+                        logger.error(e) { "Cannot put!" }
+                    }
                 }
             }
         }

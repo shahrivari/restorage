@@ -59,6 +59,9 @@ class FileSystemStore(val rootDir: String) : Store {
         }
     }
 
+    fun put(bucket: String, key: String, data: ByteArray, meta: MetaData) =
+            put(bucket, key, ByteArrayInputStream(data), meta)
+
     override fun append(bucket: String, key: String, data: InputStream,
                         meta: MetaData) = withBucket(
             bucket) {
