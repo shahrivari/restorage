@@ -1,9 +1,10 @@
 package com.github.shahrivari.restorage.store.fs
 
 import com.github.shahrivari.restorage.commons.*
-import com.github.shahrivari.restorage.exception.BucketNotFound
-import com.github.shahrivari.restorage.exception.InvalidRangeRequest
+import com.github.shahrivari.restorage.exception.BucketNotFoundException
+import com.github.shahrivari.restorage.exception.InvalidRangeRequestException
 import com.github.shahrivari.restorage.exception.KeyNotFoundException
+import com.github.shahrivari.restorage.exception.MetaDataTooLargeException
 import com.github.shahrivari.restorage.store.GetResult
 import com.github.shahrivari.restorage.store.MetaData
 import com.github.shahrivari.restorage.store.PutResult
@@ -39,6 +40,10 @@ class FileSystemStore(val rootDir: String) : Store {
         }
     }
 
+    companion object {
+        const val MAX_META_SIZE = 1024
+    }
+
     override fun createBucket(bucket: String) =
             bucketMetaDataStore.createBucket(bucket)
 
@@ -48,52 +53,78 @@ class FileSystemStore(val rootDir: String) : Store {
     override fun deleteBucket(bucket: String) =
             bucketMetaDataStore.deleteBucket(bucket)
 
-    override fun put(bucket: String, key: String, data: InputStream, meta: MetaData) = withBucket(
-            bucket) {
-        return@withBucket lockObjectForWrite(bucket, key) {
-            val size = FileOutputStream(getDataPathForKey(bucket, key), false).use {
-                data.copyTo(it, 16 * 1024)
+    private fun makeMeta(meta: MetaData): ByteArray {
+        val stream = ByteArrayOutputStream(MAX_META_SIZE)
+        stream.bufferedWriter(Charsets.UTF_8).use {
+            it.write(meta.toJson())
+            it.newLine()
+            it.flush()
+            if ((stream.size() < MAX_META_SIZE - 1)) {
+                val padding = CharArray(MAX_META_SIZE - stream.size()) { ' ' }
+                padding[padding.size - 1] = '\n'
+                it.write(padding)
             }
-            File(getMetaPathForKey(bucket, key)).writeText(meta.toJson())
-            return@lockObjectForWrite PutResult(bucket, key, size, meta.contentType)
         }
+        if (stream.size() > MAX_META_SIZE)
+            throw MetaDataTooLargeException(meta.bucket, meta.key)
+        return stream.toByteArray()
     }
+
+    override fun put(bucket: String, key: String, data: InputStream, meta: MetaData) =
+            withBucket(bucket) {
+                return@withBucket lockObjectForWrite(bucket, key) {
+                    val size = RandomAccessFile(getDataPathForKey(bucket, key), "rw").use { file ->
+                        file.setLength(0)
+                        file.write(makeMeta(meta))
+                        return@use data.copyTo(file)
+                    }
+                    return@lockObjectForWrite PutResult(bucket, key, size, meta.contentType)
+                }
+            }
 
     fun put(bucket: String, key: String, data: ByteArray, meta: MetaData) =
             put(bucket, key, ByteArrayInputStream(data), meta)
 
-    override fun append(bucket: String, key: String, data: InputStream,
-                        meta: MetaData) = withBucket(
-            bucket) {
-        val file = File(getDataPathForKey(bucket, key))
-        if (!file.exists())
-            throw KeyNotFoundException(bucket, key)
+    override fun append(bucket: String, key: String, data: InputStream, meta: MetaData) =
+            withBucket(bucket) {
+                val file = File(getDataPathForKey(bucket, key))
+                if (!file.exists())
+                    throw KeyNotFoundException(bucket, key)
 
-        return@withBucket lockObjectForWrite(bucket, key) {
-            val size = FileOutputStream(file, true).use {
-                data.copyTo(it, 16 * 1024)
-            }
+                return@withBucket lockObjectForWrite(bucket, key) {
+                    val size = RandomAccessFile(file, "rw").use { randomFile ->
+                        if (meta.other.isNotEmpty()) {
+                            randomFile.seek(0)
+                            val metaBytes = ByteArray(MAX_META_SIZE)
+                            randomFile.read(metaBytes)
+                            val oldMeta = fromJson<MetaData>(String(metaBytes, Charsets.UTF_8))
+                            meta.other.forEach {
+                                oldMeta.set(it.key, it.value)
+                            }
+                            randomFile.seek(0)
+                            randomFile.write(makeMeta(meta))
+                        }
+                        randomFile.seek(randomFile.length())
+                        return@use data.copyTo(randomFile)
+                    }
 
-            // Update meta data
-            if (meta.other.isNotEmpty()) {
-                val oldMeta = fromJson<MetaData>(File(getMetaPathForKey(bucket, key)).readText())
-                meta.other.forEach {
-                    oldMeta.set(it.key, it.value)
+                    return@lockObjectForWrite PutResult(bucket, key, size, meta.contentType)
                 }
-                File(getMetaPathForKey(bucket, key)).writeText(oldMeta.toJson())
             }
-
-            return@lockObjectForWrite PutResult(bucket, key, size, meta.contentType)
-        }
-    }
 
     override fun getMeta(bucket: String, key: String): MetaData = withBucket(bucket) {
         return@withBucket try {
-            val meta = fromJson<MetaData>(File(getMetaPathForKey(bucket, key)).readText())
+            //val meta = fromJson<MetaData>(File(getMetaPathForKey(bucket, key)).readText())
             val file = File(getDataPathForKey(bucket, key))
+            val meta = RandomAccessFile(file, "r").use { randomFile ->
+                randomFile.seek(0)
+                val metaBytes = ByteArray(MAX_META_SIZE)
+                randomFile.read(metaBytes)
+                return@use fromJson<MetaData>(String(metaBytes, Charsets.UTF_8))
+            }
+
             val attr = java.nio.file.Files.readAttributes(file.toPath(),
                                                           BasicFileAttributes::class.java)
-
             meta.lastModified = attr.lastModifiedTime().toMillis()
             meta.objectSize = attr.size()
             return@withBucket meta
@@ -106,25 +137,25 @@ class FileSystemStore(val rootDir: String) : Store {
                      end: Long?): GetResult = withBucket(bucket) {
         // Check for invalid ranges
         if (start != null && start < 0)
-            throw InvalidRangeRequest(
+            throw InvalidRangeRequestException(
                     "start: $start and end: $end")
         if (end != null && end < 0)
-            throw InvalidRangeRequest(
+            throw InvalidRangeRequestException(
                     "start: $start and end: $end")
         if (start == null && end != null)
-            throw InvalidRangeRequest(
+            throw InvalidRangeRequestException(
                     "start: $start and end: $end")
 
         try {
             val file = File(getDataPathForKey(bucket, key))
+            if (!file.exists())
+                throw KeyNotFoundException(bucket, key)
 
-            val actualStart = start ?: 0
-            val fileSize = file.length()
-            val actualEnd = end ?: fileSize - 1
+            val actualStart = (start ?: 0) + MAX_META_SIZE
+            val actualEnd = end?.plus(MAX_META_SIZE) ?: file.length() - 1
             val responseLength = actualEnd - actualStart + 1
             if (responseLength < 0)
-                throw InvalidRangeRequest(
-                        "start: $start and end: $end")
+                throw InvalidRangeRequestException("start: $start and end: $end")
 
             val storedMeta = getMeta(bucket, key)
             storedMeta.contentLength = responseLength
@@ -143,7 +174,6 @@ class FileSystemStore(val rootDir: String) : Store {
         lockObjectForWrite(bucket, key) {
             if (!File(getDataPathForKey(bucket, key)).delete())
                 throw KeyNotFoundException(bucket, key)
-            File(getMetaPathForKey(bucket, key)).delete()
         }
         return@withBucket
     }
@@ -151,13 +181,11 @@ class FileSystemStore(val rootDir: String) : Store {
     private fun getDataPathForKey(bucket: String, key: String): String =
             "${DirectoryCalculator.getTwoNestedLevels(rootDir, key)}.$bucket.object"
 
-    private fun getMetaPathForKey(bucket: String, key: String): String =
-            "${DirectoryCalculator.getTwoNestedLevels(rootDir, key)}.$bucket.meta"
-
     private fun <R> withBucket(bucket: String, block: () -> R): R {
         val bucketInfo = getBucketInfo(bucket)
         if (!bucketInfo.isPresent)
-            throw BucketNotFound(bucket)
+            throw BucketNotFoundException(
+                    bucket)
         return bucketInfo.get().lock.read {
             block.invoke()
         }
@@ -166,6 +194,18 @@ class FileSystemStore(val rootDir: String) : Store {
     private fun <R> lockObjectForWrite(bucket: String, key: String, block: () -> R): R {
         val lock = lockCache.get("$bucket:$key") { ReentrantReadWriteLock() }
         return lock.write(block)
+    }
+
+    private fun InputStream.copyTo(out: RandomAccessFile, bufferSize: Int = 16 * 1024): Long {
+        var bytesCopied: Long = 0
+        val buffer = ByteArray(bufferSize)
+        var bytes = read(buffer)
+        while (bytes >= 0) {
+            out.write(buffer, 0, bytes)
+            bytesCopied += bytes
+            bytes = read(buffer)
+        }
+        return bytesCopied
     }
 
 }

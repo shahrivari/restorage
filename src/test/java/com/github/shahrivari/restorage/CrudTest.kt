@@ -2,8 +2,10 @@ package com.github.shahrivari.restorage
 
 import com.github.shahrivari.restorage.client.ReStorageClient
 import com.github.shahrivari.restorage.commons.randomBytes
-import com.github.shahrivari.restorage.exception.BucketNotFound
+import com.github.shahrivari.restorage.exception.BucketNotFoundException
 import com.github.shahrivari.restorage.exception.KeyNotFoundException
+import com.github.shahrivari.restorage.exception.MetaDataTooLargeException
+import com.github.shahrivari.restorage.store.fs.FileSystemStore
 import org.assertj.core.api.Assertions
 import org.junit.jupiter.api.*
 import java.io.ByteArrayInputStream
@@ -56,6 +58,14 @@ class CrudTest {
     }
 
     @Test
+    fun `test empty put`() {
+        val emptyBytes = ByteArray(0)
+        client.putObject(DEFAULT_BUCKET, defaultKey, emptyBytes)
+        val result = client.getObject(DEFAULT_BUCKET, defaultKey)
+        Assertions.assertThat(emptyBytes).isEqualTo(result?.getAllBytes())
+    }
+
+    @Test
     fun `test simple append`() {
         client.putObject(DEFAULT_BUCKET, defaultKey, defaultValue)
         client.appendObject(DEFAULT_BUCKET, defaultKey, defaultValue)
@@ -98,6 +108,15 @@ class CrudTest {
     }
 
     @Test
+    fun `should fail on large meta data`() {
+        val meta = mapOf("meta1" to "1", "meta2" to "2".repeat(FileSystemStore.MAX_META_SIZE + 9))
+
+        Assertions.assertThatThrownBy {
+            client.putObject(DEFAULT_BUCKET, defaultKey, defaultValue, metaData = meta)
+        }.isInstanceOf(MetaDataTooLargeException::class.java)
+    }
+
+    @Test
     fun `test append with meta data`() {
         val meta = mutableMapOf("meta1" to "1", "meta2" to "2")
         client.putObject(DEFAULT_BUCKET, defaultKey, defaultValue, metaData = meta)
@@ -115,7 +134,8 @@ class CrudTest {
     fun `test delete object`() {
         Assertions.assertThatThrownBy {
             client.deleteObject("INVALID_BUCKET", defaultKey)
-        }.isInstanceOf(BucketNotFound::class.java)
+        }.isInstanceOf(
+                BucketNotFoundException::class.java)
 
         client.putObject(DEFAULT_BUCKET, defaultKey, defaultValue)
         client.deleteObject(DEFAULT_BUCKET, defaultKey)
@@ -126,7 +146,7 @@ class CrudTest {
 
         Assertions.assertThatThrownBy {
             client.deleteObject("INVALID_BUCKET", defaultKey)
-        }.isInstanceOf(BucketNotFound::class.java)
+        }.isInstanceOf(BucketNotFoundException::class.java)
     }
 
     @Test
@@ -134,21 +154,24 @@ class CrudTest {
         client.putObject(DEFAULT_BUCKET, defaultKey, defaultValue)
         Assertions.assertThatThrownBy {
             client.getObject("INVALID_BUCKET", defaultKey)
-        }.isInstanceOf(BucketNotFound::class.java)
+        }.isInstanceOf(
+                BucketNotFoundException::class.java)
     }
 
     @Test
     fun `test put with invalid bucket`() {
         Assertions.assertThatThrownBy {
             client.putObject("INVALID_BUCKET", defaultKey, defaultValue)
-        }.isInstanceOf(BucketNotFound::class.java)
+        }.isInstanceOf(
+                BucketNotFoundException::class.java)
     }
 
     @Test
     fun `test append with invalid bucket`() {
         Assertions.assertThatThrownBy {
             client.appendObject("INVALID_BUCKET", defaultKey, defaultValue)
-        }.isInstanceOf(BucketNotFound::class.java)
+        }.isInstanceOf(
+                BucketNotFoundException::class.java)
     }
 
     @Test
@@ -207,8 +230,9 @@ class CrudTest {
         client.putObject(DEFAULT_BUCKET, defaultKey, smallValue)
         thread.join()
         val result = client.getObject(DEFAULT_BUCKET, defaultKey)?.getAllBytes()
-        Assertions.assertThat(
-                listOf(bigValue, smallValue).any { Arrays.equals(it, result) }).isTrue()
+        println(result?.size)
+        val any = listOf(bigValue, smallValue).any { Arrays.equals(it, result) }
+        Assertions.assertThat(any).isTrue
     }
 
     @Test

@@ -1,8 +1,8 @@
 package com.github.shahrivari.restorage
 
 import com.github.shahrivari.restorage.client.ReStorageClient
-import com.github.shahrivari.restorage.exception.BucketAlreadyExists
-import com.github.shahrivari.restorage.exception.BucketNotFound
+import com.github.shahrivari.restorage.exception.BucketAlreadyExistsException
+import com.github.shahrivari.restorage.exception.BucketNotFoundException
 import org.junit.jupiter.api.*
 import java.io.File
 import kotlin.test.assertFalse
@@ -53,12 +53,12 @@ class BucketTest {
     @Test
     fun `should fail on duplicate bucket`() {
         client.createBucket(DEFAULT_BUCKET)
-        assertThrows<BucketAlreadyExists> { client.createBucket(DEFAULT_BUCKET) }
+        assertThrows<BucketAlreadyExistsException> { client.createBucket(DEFAULT_BUCKET) }
     }
 
     @Test
     fun `test get bucket`() {
-        assertThrows<BucketNotFound> { client.getBucket("INVALID_BUCKET") }
+        assertThrows<BucketNotFoundException> { client.getBucket("INVALID_BUCKET") }
         client.createBucket(DEFAULT_BUCKET)
         client.getBucket(DEFAULT_BUCKET)
     }
@@ -76,6 +76,6 @@ class BucketTest {
 
     @Test
     fun `should fail on absent bucket deletion`() {
-        assertThrows<BucketNotFound> { client.deleteBucket("ABSENT_BUCKET") }
+        assertThrows<BucketNotFoundException> { client.deleteBucket("ABSENT_BUCKET") }
     }
 }

@@ -1,8 +1,8 @@
 package com.github.shahrivari.restorage
 
 import com.github.shahrivari.restorage.commons.RangeHeader
-import com.github.shahrivari.restorage.exception.BucketNotFound
-import com.github.shahrivari.restorage.exception.InvalidRangeRequest
+import com.github.shahrivari.restorage.exception.BucketNotFoundException
+import com.github.shahrivari.restorage.exception.InvalidRangeRequestException
 import com.github.shahrivari.restorage.store.MetaData
 import com.github.shahrivari.restorage.store.fs.FileSystemStore
 import io.javalin.http.Context
@@ -42,7 +42,7 @@ class Controller(private val store: FileSystemStore) {
         if (rangeHeader != null) {
             val ranges = RangeHeader.decodeRange(rangeHeader)
             if (ranges.size != 1)
-                throw InvalidRangeRequest(
+                throw InvalidRangeRequestException(
                         rangeHeader)
             start = ranges.first().start
             end = ranges.first().end
@@ -89,7 +89,8 @@ class Controller(private val store: FileSystemStore) {
     fun getBucketInfo(ctx: Context) {
         val result = store.getBucketInfo(ctx.bucket())
         if (!result.isPresent)
-            throw BucketNotFound(ctx.bucket())
+            throw BucketNotFoundException(
+                    ctx.bucket())
         result.ifPresent { ctx.json(it) }
     }
 

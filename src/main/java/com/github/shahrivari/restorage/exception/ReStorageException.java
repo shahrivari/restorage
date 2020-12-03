@@ -38,14 +38,20 @@ public class ReStorageException extends Exception {
         ReStorageException exp = mapper.readValue(json, ReStorageException.class);
 
         switch (exp.errorCode) {
-            case 1001:
-                exp = new BucketAlreadyExists(bucket);
+            case BucketAlreadyExistsException.ERROR_CODE:
+                exp = new BucketAlreadyExistsException(bucket);
                 break;
-            case 1002:
-                exp = new BucketNotFound(bucket);
+            case BucketNotFoundException.ERROR_CODE:
+                exp = new BucketNotFoundException(bucket);
                 break;
-            case 1003:
+            case KeyNotFoundException.ERROR_CODE:
                 exp = new KeyNotFoundException(bucket, key == null ? "" : key);
+                break;
+            case InvalidRangeRequestException.ERROR_CODE:
+                exp = new InvalidRangeRequestException("");
+                break;
+            case MetaDataTooLargeException.ERROR_CODE:
+                exp = new MetaDataTooLargeException(bucket, key == null ? "" : key);
                 break;
         }
 

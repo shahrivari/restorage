@@ -1,8 +1,8 @@
 package com.github.shahrivari.restorage.store.fs
 
 import com.fasterxml.jackson.annotation.JsonIgnore
-import com.github.shahrivari.restorage.exception.BucketAlreadyExists
-import com.github.shahrivari.restorage.exception.BucketNotFound
+import com.github.shahrivari.restorage.exception.BucketAlreadyExistsException
+import com.github.shahrivari.restorage.exception.BucketNotFoundException
 import com.github.shahrivari.restorage.commons.fromJson
 import com.github.shahrivari.restorage.commons.toJson
 import com.google.common.cache.CacheBuilder
@@ -36,7 +36,8 @@ class BucketMetaDataStore(val rootDir: String) {
 
     fun createBucket(bucket: String): BucketInfo {
         if (getBucket(bucket).isPresent)
-            throw BucketAlreadyExists(bucket)
+            throw BucketAlreadyExistsException(
+                    bucket)
 
         val bucketInfo = BucketInfo(bucket)
         bucketCache.put(bucket, Optional.of(bucketInfo))
@@ -59,7 +60,8 @@ class BucketMetaDataStore(val rootDir: String) {
 
     fun deleteBucket(bucket: String) {
         if (!getBucket(bucket).isPresent)
-            throw BucketNotFound(bucket)
+            throw BucketNotFoundException(
+                    bucket)
 
 
         lockBucketForWrite(bucket) {

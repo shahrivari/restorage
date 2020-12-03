@@ -1,6 +1,6 @@
 package com.github.shahrivari.restorage.commons;
 
-import com.github.shahrivari.restorage.exception.InvalidRangeRequest;
+import com.github.shahrivari.restorage.exception.InvalidRangeRequestException;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -31,7 +31,7 @@ public class RangeHeader {
             return end - start;
     }
 
-    public static List<RangeHeader> decodeRange(String rangeHeader) throws InvalidRangeRequest {
+    public static List<RangeHeader> decodeRange(String rangeHeader) throws InvalidRangeRequestException {
         List<RangeHeader> ranges = new ArrayList<>();
         String byteRangeSetRegex = "(((?<byteRangeSpec>(?<firstBytePos>\\d+)-(?<lastBytePos>\\d+)?)|(?<suffixByteRangeSpec>-(?<suffixLength>\\d+)))(,|$))";
         String byteRangesSpecifierRegex = "bytes=(?<byteRangeSet>" + byteRangeSetRegex + "{1,})";
@@ -51,12 +51,12 @@ public class RangeHeader {
                 } else if (byteRangeSetMatcher.group("suffixByteRangeSpec") != null) {
                     range.suffixLength = Long.valueOf(byteRangeSetMatcher.group("suffixLength"));
                 } else {
-                    throw new InvalidRangeRequest(rangeHeader);
+                    throw new InvalidRangeRequestException(rangeHeader);
                 }
                 ranges.add(range);
             }
         } else {
-            throw new InvalidRangeRequest(rangeHeader);
+            throw new InvalidRangeRequestException(rangeHeader);
         }
         return ranges;
     }
