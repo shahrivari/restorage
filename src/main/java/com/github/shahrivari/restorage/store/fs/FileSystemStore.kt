@@ -20,7 +20,7 @@ import kotlin.concurrent.write
 
 
 class FileSystemStore(val rootDir: String) : Store {
-    private val bucketMetaDataStore = BucketMetaDataStore(rootDir)
+    private val bucketMetaDataStore: BucketMetaDataStore
 
     private val lockCache = CacheBuilder.newBuilder()
             .expireAfterAccess(5, TimeUnit.SECONDS)
@@ -29,6 +29,7 @@ class FileSystemStore(val rootDir: String) : Store {
     init {
         val sep = File.separator
         File(rootDir).mkdirs()
+        bucketMetaDataStore = BucketMetaDataStore(rootDir)
         for (i in 0..255) {
             val dir1 = File("$rootDir$sep${"%02x".format(i)}")
             if (!dir1.exists()) dir1.mkdir()
@@ -73,7 +74,7 @@ class FileSystemStore(val rootDir: String) : Store {
     override fun put(bucket: String, key: String, data: InputStream, meta: MetaData) =
             withBucket(bucket) {
                 return@withBucket lockObjectForWrite(bucket, key) {
-                    val size = RandomAccessFile(getDataPathForKey(bucket, key), "rw").use { file ->
+                    val size = RandomAccessFile(getFilePathForKey(bucket, key), "rw").use { file ->
                         file.setLength(0)
                         file.write(makeMeta(meta))
                         return@use data.copyTo(file)
@@ -87,7 +88,7 @@ class FileSystemStore(val rootDir: String) : Store {
 
     override fun append(bucket: String, key: String, data: InputStream, meta: MetaData) =
             withBucket(bucket) {
-                val file = File(getDataPathForKey(bucket, key))
+                val file = File(getFilePathForKey(bucket, key))
                 if (!file.exists())
                     throw KeyNotFoundException(bucket, key)
 
@@ -115,7 +116,7 @@ class FileSystemStore(val rootDir: String) : Store {
     override fun getMeta(bucket: String, key: String): MetaData = withBucket(bucket) {
         return@withBucket try {
             //val meta = fromJson<MetaData>(File(getMetaPathForKey(bucket, key)).readText())
-            val file = File(getDataPathForKey(bucket, key))
+            val file = File(getFilePathForKey(bucket, key))
             val meta = RandomAccessFile(file, "r").use { randomFile ->
                 randomFile.seek(0)
                 val metaBytes = ByteArray(MAX_META_SIZE)
@@ -147,7 +148,7 @@ class FileSystemStore(val rootDir: String) : Store {
                     "start: $start and end: $end")
 
         try {
-            val file = File(getDataPathForKey(bucket, key))
+            val file = File(getFilePathForKey(bucket, key))
             if (!file.exists())
                 throw KeyNotFoundException(bucket, key)
 
@@ -172,20 +173,24 @@ class FileSystemStore(val rootDir: String) : Store {
 
     override fun delete(bucket: String, key: String) = withBucket(bucket) {
         lockObjectForWrite(bucket, key) {
-            if (!File(getDataPathForKey(bucket, key)).delete())
+            if (!File(getFilePathForKey(bucket, key)).delete())
                 throw KeyNotFoundException(bucket, key)
         }
         return@withBucket
     }
 
-    private fun getDataPathForKey(bucket: String, key: String): String =
-            "${DirectoryCalculator.getTwoNestedLevels(rootDir, key)}.$bucket.object"
+    private fun getFilePathForKey(bucket: String, key: String): String {
+        val bucketInfo = getBucketInfo(bucket)
+        if (!bucketInfo.isPresent)
+            throw BucketNotFoundException(bucket)
+        val path = DirectoryCalculator.getTwoNestedLevels(rootDir, key)
+        return "$path.${bucketInfo.get().id}.object"
+    }
 
     private fun <R> withBucket(bucket: String, block: () -> R): R {
         val bucketInfo = getBucketInfo(bucket)
         if (!bucketInfo.isPresent)
-            throw BucketNotFoundException(
-                    bucket)
+            throw BucketNotFoundException(bucket)
         return bucketInfo.get().lock.read {
             block.invoke()
         }

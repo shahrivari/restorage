@@ -134,8 +134,7 @@ class CrudTest {
     fun `test delete object`() {
         Assertions.assertThatThrownBy {
             client.deleteObject("INVALID_BUCKET", defaultKey)
-        }.isInstanceOf(
-                BucketNotFoundException::class.java)
+        }.isInstanceOf(BucketNotFoundException::class.java)
 
         client.putObject(DEFAULT_BUCKET, defaultKey, defaultValue)
         client.deleteObject(DEFAULT_BUCKET, defaultKey)
@@ -154,24 +153,21 @@ class CrudTest {
         client.putObject(DEFAULT_BUCKET, defaultKey, defaultValue)
         Assertions.assertThatThrownBy {
             client.getObject("INVALID_BUCKET", defaultKey)
-        }.isInstanceOf(
-                BucketNotFoundException::class.java)
+        }.isInstanceOf(BucketNotFoundException::class.java)
     }
 
     @Test
     fun `test put with invalid bucket`() {
         Assertions.assertThatThrownBy {
             client.putObject("INVALID_BUCKET", defaultKey, defaultValue)
-        }.isInstanceOf(
-                BucketNotFoundException::class.java)
+        }.isInstanceOf(BucketNotFoundException::class.java)
     }
 
     @Test
     fun `test append with invalid bucket`() {
         Assertions.assertThatThrownBy {
             client.appendObject("INVALID_BUCKET", defaultKey, defaultValue)
-        }.isInstanceOf(
-                BucketNotFoundException::class.java)
+        }.isInstanceOf(BucketNotFoundException::class.java)
     }
 
     @Test
@@ -244,4 +240,15 @@ class CrudTest {
         Assertions.assertThat(values.any { Arrays.equals(it, result) }).isTrue()
     }
 
+    @Test
+    fun `get after bucket delete should fail`() {
+        client.createBucket("reza")
+        client.putObject("reza", "key", "Some value".byteInputStream())
+        client.getObject("reza", "key")
+        client.deleteBucket("reza")
+        client.createBucket("reza")
+        Assertions.assertThatThrownBy {
+            client.getObject("reza", "key")
+        }.isInstanceOf(KeyNotFoundException::class.java)
+    }
 }
