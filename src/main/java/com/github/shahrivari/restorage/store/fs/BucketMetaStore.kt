@@ -100,7 +100,7 @@ class BucketMetaDataStore(val rootDir: String) {
             bucketCache.invalidate(bucket)
         }
 
-        logBucketOperation("CREATE", bucketInfo.get())
+        logBucketOperation("DELETE", bucketInfo.get())
     }
 
     private fun <R> lockBucketForWrite(bucket: String, block: () -> R): R {

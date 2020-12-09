@@ -6,6 +6,7 @@ import com.github.shahrivari.restorage.exception.BucketNotFoundException
 import com.github.shahrivari.restorage.exception.KeyNotFoundException
 import com.github.shahrivari.restorage.exception.MetaDataTooLargeException
 import com.github.shahrivari.restorage.store.fs.FileSystemStore
+import com.google.common.hash.Hashing
 import org.assertj.core.api.Assertions
 import org.junit.jupiter.api.*
 import java.io.ByteArrayInputStream
@@ -250,5 +251,14 @@ class CrudTest {
         Assertions.assertThatThrownBy {
             client.getObject("reza", "key")
         }.isInstanceOf(KeyNotFoundException::class.java)
+    }
+
+    @Test
+    fun `get md5 calculation`() {
+        client.createBucket("reza")
+        client.putObject("reza", "key", "Some value".byteInputStream())
+        val meta = client.getObjectMd5("reza", "key")
+        val md5 = Hashing.md5().hashString("Some value", Charsets.UTF_8).toString()
+        Assertions.assertThat(meta?.get("md5")).isEqualTo(md5)
     }
 }

@@ -157,6 +157,13 @@ class ReStorageClient(private val address: String) {
         }
     }
 
+    fun getObjectMd5(bucket: String, key: String): MetaData? {
+        restClient.getObjectMd5(bucket, key).execute().let {
+            checkErrors(it, bucket, key)
+            return it.body()
+        }
+    }
+
     fun objectExists(bucket: String, key: String): Boolean {
         restClient.getObjectMeta(bucket, key).execute().let {
             return it.code() == 200

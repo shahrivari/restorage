@@ -34,6 +34,10 @@ interface ReStorageRestClient {
     fun getObjectMeta(@Path("bucket") bucket: String,
                       @Path("key") key: String): Call<MetaData>
 
+    @GET("$OBJECT_CRUD_PATH/md5")
+    fun getObjectMd5(@Path("bucket") bucket: String,
+                      @Path("key") key: String): Call<MetaData>
+
     companion object {
 
         fun getClient(address: String, client: OkHttpClient): ReStorageRestClient {

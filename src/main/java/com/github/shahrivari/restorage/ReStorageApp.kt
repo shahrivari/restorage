@@ -57,6 +57,8 @@ class ReStorageApp : CliktCommand() {
 
         app.get("${Controller.OBJECT_CRUD_PATH}/meta") { ctx -> controller.getObjectMeta(ctx) }
 
+        app.get("${Controller.OBJECT_CRUD_PATH}/md5") { ctx -> controller.getMd5(ctx) }
+
         app.head(Controller.OBJECT_CRUD_PATH) { ctx -> controller.headObject(ctx) }
 
         app.delete(Controller.OBJECT_CRUD_PATH) { ctx -> controller.deleteObject(ctx) }

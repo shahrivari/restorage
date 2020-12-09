@@ -21,4 +21,6 @@ interface Store {
     fun get(bucket: String, key: String, start: Long? = null, end: Long? = null): GetResult
 
     fun delete(bucket: String, key: String)
+
+    fun computeMd5(bucket: String, key: String): String
 }

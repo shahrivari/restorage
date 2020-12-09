@@ -10,6 +10,11 @@ import com.github.shahrivari.restorage.store.MetaData
 import com.github.shahrivari.restorage.store.PutResult
 import com.github.shahrivari.restorage.store.Store
 import com.google.common.cache.CacheBuilder
+import com.google.common.hash.Funnels
+import com.google.common.hash.Hashing
+import com.google.common.hash.HashingInputStream
+import com.google.common.io.ByteSource
+import com.google.common.io.ByteStreams
 import java.io.*
 import java.nio.file.attribute.BasicFileAttributes
 import java.util.*
@@ -19,7 +24,7 @@ import kotlin.concurrent.read
 import kotlin.concurrent.write
 
 
-class FileSystemStore(val rootDir: String) : Store {
+class FileSystemStore(private val rootDir: String) : Store {
     private val bucketMetaDataStore: BucketMetaDataStore
 
     private val lockCache = CacheBuilder.newBuilder()
@@ -134,7 +139,9 @@ class FileSystemStore(val rootDir: String) : Store {
         }
     }
 
-    override fun get(bucket: String, key: String, start: Long?,
+    override fun get(bucket: String,
+                     key: String,
+                     start: Long?,
                      end: Long?): GetResult = withBucket(bucket) {
         // Check for invalid ranges
         if (start != null && start < 0)
@@ -179,6 +186,13 @@ class FileSystemStore(val rootDir: String) : Store {
         return@withBucket
     }
 
+    override fun computeMd5(bucket: String, key: String) = withBucket(bucket) {
+        val result = get(bucket, key)
+        val hasher = Hashing.md5().newHasher()
+        ByteStreams.copy(result.stream, Funnels.asOutputStream(hasher))
+        return@withBucket hasher.hash().toString()
+    }
+
     private fun getFilePathForKey(bucket: String, key: String): String {
         val bucketInfo = getBucketInfo(bucket)
         if (!bucketInfo.isPresent)
@@ -212,5 +226,4 @@ class FileSystemStore(val rootDir: String) : Store {
         }
         return bytesCopied
     }
-
 }

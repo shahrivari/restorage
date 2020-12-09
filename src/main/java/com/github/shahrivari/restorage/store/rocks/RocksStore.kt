@@ -51,4 +51,8 @@ class RocksStore(val path: String) : Store {
     override fun delete(bucket: String, key: String) {
         TODO("Not yet implemented")
     }
+
+    override fun computeMd5(bucket: String, key: String): String {
+        TODO("Not yet implemented")
+    }
 }

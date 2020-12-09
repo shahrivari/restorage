@@ -42,8 +42,7 @@ class Controller(private val store: FileSystemStore) {
         if (rangeHeader != null) {
             val ranges = RangeHeader.decodeRange(rangeHeader)
             if (ranges.size != 1)
-                throw InvalidRangeRequestException(
-                        rangeHeader)
+                throw InvalidRangeRequestException(rangeHeader)
             start = ranges.first().start
             end = ranges.first().end
         }
@@ -89,13 +88,20 @@ class Controller(private val store: FileSystemStore) {
     fun getBucketInfo(ctx: Context) {
         val result = store.getBucketInfo(ctx.bucket())
         if (!result.isPresent)
-            throw BucketNotFoundException(
-                    ctx.bucket())
+            throw BucketNotFoundException(ctx.bucket())
         result.ifPresent { ctx.json(it) }
     }
 
     fun createBucket(ctx: Context) {
         val result = store.createBucket(ctx.bucket())
         ctx.json(result)
+    }
+
+    fun getMd5(ctx: Context) {
+        val meta = store.getMeta(ctx.bucket(), ctx.key())
+        val md5 = store.computeMd5(ctx.bucket(), ctx.key())
+        meta.set("md5", md5)
+        ctx.status(200)
+        ctx.json(meta)
     }
 }
