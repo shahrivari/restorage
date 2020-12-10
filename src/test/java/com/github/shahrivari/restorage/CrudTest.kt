@@ -138,7 +138,9 @@ class CrudTest {
         }.isInstanceOf(BucketNotFoundException::class.java)
 
         client.putObject(DEFAULT_BUCKET, defaultKey, defaultValue)
-        client.deleteObject(DEFAULT_BUCKET, defaultKey)
+        val deleteResponse = client.deleteObject(DEFAULT_BUCKET, defaultKey)
+
+        Assertions.assertThat(defaultValue.size).isEqualTo(deleteResponse?.size ?: 0)
 
         Assertions.assertThatThrownBy {
             client.deleteObject(DEFAULT_BUCKET, defaultKey)
@@ -243,22 +245,29 @@ class CrudTest {
 
     @Test
     fun `get after bucket delete should fail`() {
-        client.createBucket("reza")
-        client.putObject("reza", "key", "Some value".byteInputStream())
-        client.getObject("reza", "key")
-        client.deleteBucket("reza")
-        client.createBucket("reza")
+        val bucket = "reza"
+        val key = "key"
+        if (!client.bucketExists(bucket))
+            client.createBucket(bucket)
+        client.putObject(bucket, key, "Some value".byteInputStream())
+        client.getObject(bucket, key)
+        client.deleteBucket(bucket)
+        client.createBucket(bucket)
         Assertions.assertThatThrownBy {
-            client.getObject("reza", "key")
+            client.getObject(bucket, key)
         }.isInstanceOf(KeyNotFoundException::class.java)
     }
 
     @Test
     fun `get md5 calculation`() {
-        client.createBucket("reza")
-        client.putObject("reza", "key", "Some value".byteInputStream())
-        val meta = client.getObjectMd5("reza", "key")
-        val md5 = Hashing.md5().hashString("Some value", Charsets.UTF_8).toString()
+        val bucket = "reza"
+        val key = "key"
+        val value = "Some value"
+        if (!client.bucketExists(bucket))
+            client.createBucket(bucket)
+        client.putObject(bucket, key, value.byteInputStream())
+        val meta = client.getObjectMd5(bucket, key)
+        val md5 = Hashing.md5().hashString(value, Charsets.UTF_8).toString()
         Assertions.assertThat(meta?.get("md5")).isEqualTo(md5)
     }
 }

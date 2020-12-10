@@ -139,6 +139,10 @@ class FileSystemStore(private val rootDir: String) : Store {
         }
     }
 
+    override fun objectExists(bucket: String, key: String): Boolean {
+        return File(getFilePathForKey(bucket, key)).exists()
+    }
+
     override fun get(bucket: String,
                      key: String,
                      start: Long?,
@@ -179,11 +183,14 @@ class FileSystemStore(private val rootDir: String) : Store {
     }
 
     override fun delete(bucket: String, key: String) = withBucket(bucket) {
-        lockObjectForWrite(bucket, key) {
-            if (!File(getFilePathForKey(bucket, key)).delete())
+        val length = lockObjectForWrite(bucket, key) {
+            val file = File(getFilePathForKey(bucket, key))
+            val length = file.length()
+            if (!file.delete())
                 throw KeyNotFoundException(bucket, key)
+            return@lockObjectForWrite length
         }
-        return@withBucket
+        return@withBucket length - MAX_META_SIZE
     }
 
     override fun computeMd5(bucket: String, key: String) = withBucket(bucket) {
@@ -192,6 +199,9 @@ class FileSystemStore(private val rootDir: String) : Store {
         ByteStreams.copy(result.stream, Funnels.asOutputStream(hasher))
         return@withBucket hasher.hash().toString()
     }
+
+    fun getUnderlyingFile(bucket: String, key: String) =
+            File(getFilePathForKey(bucket, key))
 
     private fun getFilePathForKey(bucket: String, key: String): String {
         val bucketInfo = getBucketInfo(bucket)

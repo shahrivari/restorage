@@ -44,11 +44,15 @@ class RocksStore(val path: String) : Store {
         TODO("Not yet implemented")
     }
 
+    override fun objectExists(bucket: String, key: String): Boolean {
+        TODO("Not yet implemented")
+    }
+
     override fun get(bucket: String, key: String, start: Long?, end: Long?): GetResult {
         TODO("Not yet implemented")
     }
 
-    override fun delete(bucket: String, key: String) {
+    override fun delete(bucket: String, key: String): Long {
         TODO("Not yet implemented")
     }
 

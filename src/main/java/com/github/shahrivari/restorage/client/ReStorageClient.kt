@@ -2,6 +2,7 @@ package com.github.shahrivari.restorage.client
 
 import com.github.shahrivari.restorage.exception.ReStorageException
 import com.github.shahrivari.restorage.commons.fromJson
+import com.github.shahrivari.restorage.store.DeleteResponse
 import com.github.shahrivari.restorage.store.GetResult
 import com.github.shahrivari.restorage.store.MetaData
 import com.github.shahrivari.restorage.store.PutResult
@@ -170,9 +171,10 @@ class ReStorageClient(private val address: String) {
         }
     }
 
-    fun deleteObject(bucket: String, key: String) {
+    fun deleteObject(bucket: String, key: String): DeleteResponse? {
         restClient.deleteObject(bucket, key).execute().let {
             checkErrors(it, bucket, key)
+            return it.body()
         }
     }
 }

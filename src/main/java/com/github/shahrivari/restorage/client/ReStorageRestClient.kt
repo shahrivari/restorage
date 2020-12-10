@@ -1,6 +1,7 @@
 package com.github.shahrivari.restorage.client
 
 import com.github.shahrivari.restorage.commons.jacksonMapper
+import com.github.shahrivari.restorage.store.DeleteResponse
 import com.github.shahrivari.restorage.store.MetaData
 import com.github.shahrivari.restorage.store.fs.BucketInfo
 import okhttp3.OkHttpClient
@@ -28,7 +29,7 @@ interface ReStorageRestClient {
 
     @DELETE(OBJECT_CRUD_PATH)
     fun deleteObject(@Path("bucket") bucket: String,
-                     @Path("key") key: String): Call<Unit>
+                     @Path("key") key: String): Call<DeleteResponse>
 
     @GET("$OBJECT_CRUD_PATH/meta")
     fun getObjectMeta(@Path("bucket") bucket: String,

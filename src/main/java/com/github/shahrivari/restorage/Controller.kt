@@ -3,6 +3,7 @@ package com.github.shahrivari.restorage
 import com.github.shahrivari.restorage.commons.RangeHeader
 import com.github.shahrivari.restorage.exception.BucketNotFoundException
 import com.github.shahrivari.restorage.exception.InvalidRangeRequestException
+import com.github.shahrivari.restorage.store.DeleteResponse
 import com.github.shahrivari.restorage.store.MetaData
 import com.github.shahrivari.restorage.store.fs.FileSystemStore
 import io.javalin.http.Context
@@ -18,8 +19,8 @@ class Controller(private val store: FileSystemStore) {
     fun Context.key() = pathParam("key")
 
     fun deleteObject(ctx: Context) {
-        store.delete(ctx.bucket(), ctx.key())
-        ctx.status(200)
+        val size = store.delete(ctx.bucket(), ctx.key())
+        ctx.json(DeleteResponse(ctx.bucket(), ctx.key(), size))
     }
 
     fun headObject(ctx: Context) {

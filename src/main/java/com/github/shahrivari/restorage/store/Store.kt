@@ -18,9 +18,11 @@ interface Store {
 
     fun getMeta(bucket: String, key: String): MetaData
 
+    fun objectExists(bucket: String, key: String): Boolean
+
     fun get(bucket: String, key: String, start: Long? = null, end: Long? = null): GetResult
 
-    fun delete(bucket: String, key: String)
+    fun delete(bucket: String, key: String) : Long
 
     fun computeMd5(bucket: String, key: String): String
 }
