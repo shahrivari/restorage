@@ -131,8 +131,9 @@ class FileSystemStore(private val rootDir: String) : Store {
 
             val attr = java.nio.file.Files.readAttributes(file.toPath(),
                                                           BasicFileAttributes::class.java)
+            meta.contentLength = attr.size() - MAX_META_SIZE
             meta.lastModified = attr.lastModifiedTime().toMillis()
-            meta.objectSize = attr.size()
+            meta.objectSize = attr.size()  - MAX_META_SIZE
             return@withBucket meta
         } catch (e: FileNotFoundException) {
             throw KeyNotFoundException(bucket, key)
@@ -169,8 +170,7 @@ class FileSystemStore(private val rootDir: String) : Store {
             if (responseLength < 0)
                 throw InvalidRangeRequestException("start: $start and end: $end")
 
-            val storedMeta = getMeta(bucket, key)
-            storedMeta.contentLength = responseLength
+            val storedMeta = getMeta(bucket, key).also { it.contentLength = responseLength }
 
             val fileStream = file.inputStream()
             fileStream.channel.position(actualStart)
