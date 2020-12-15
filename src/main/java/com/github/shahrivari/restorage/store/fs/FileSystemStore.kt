@@ -108,7 +108,7 @@ class FileSystemStore(private val rootDir: String) : Store {
                                 oldMeta.set(it.key, it.value)
                             }
                             randomFile.seek(0)
-                            randomFile.write(makeMeta(meta))
+                            randomFile.write(makeMeta(oldMeta))
                         }
                         randomFile.seek(randomFile.length())
                         return@use data.copyTo(randomFile)
@@ -120,7 +120,6 @@ class FileSystemStore(private val rootDir: String) : Store {
 
     override fun getMeta(bucket: String, key: String): MetaData = withBucket(bucket) {
         return@withBucket try {
-            //val meta = fromJson<MetaData>(File(getMetaPathForKey(bucket, key)).readText())
             val file = File(getFilePathForKey(bucket, key))
             val meta = RandomAccessFile(file, "r").use { randomFile ->
                 randomFile.seek(0)
