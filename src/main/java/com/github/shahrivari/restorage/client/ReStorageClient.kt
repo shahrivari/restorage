@@ -11,7 +11,6 @@ import okhttp3.*
 import okio.BufferedSink
 import okio.Okio
 import retrofit2.Response
-import java.io.ByteArrayInputStream
 import java.io.InputStream
 
 class ReStorageClient(private val address: String) {
@@ -65,41 +64,36 @@ class ReStorageClient(private val address: String) {
 
     fun putObject(bucket: String,
                   key: String,
-                  stream: InputStream,
-                  contentType: String? = null,
-                  metaData: Map<String, String>? = null): PutResult? =
-            doPut(bucket, key, stream, contentType, metaData, false)
+                  obj: ObjectToPut): PutResult? =
+            doPut(bucket, key, obj, false)
+
 
     fun putObject(bucket: String,
                   key: String,
-                  value: ByteArray,
-                  contentType: String? = null,
+                  bytes: ByteArray,
                   metaData: Map<String, String>? = null): PutResult? =
-            doPut(bucket, key, ByteArrayInputStream(value), contentType, metaData, false)
+            doPut(bucket, key, ObjectToPut(bytes, metaData = metaData), false)
 
     fun appendObject(bucket: String,
                      key: String,
-                     stream: InputStream,
-                     contentType: String? = null,
-                     metaData: Map<String, String>? = null): PutResult? =
-            doPut(bucket, key, stream, contentType, metaData, true)
+                     obj: ObjectToPut): PutResult? =
+            doPut(bucket, key, obj, true)
 
     fun appendObject(bucket: String,
                      key: String,
-                     value: ByteArray,
-                     contentType: String? = null,
+                     bytes: ByteArray,
                      metaData: Map<String, String>? = null): PutResult? =
-            doPut(bucket, key, ByteArrayInputStream(value), contentType, metaData, true)
+            doPut(bucket, key, ObjectToPut(bytes, metaData = metaData), true)
 
     private fun doPut(bucket: String,
                       key: String,
-                      stream: InputStream,
-                      contentType: String? = null,
-                      metaData: Map<String, String>? = null,
+                      obj: ObjectToPut,
                       isAppend: Boolean): PutResult? {
-        val body = buildBody(stream, contentType)
-        val builder = getRequestBuilder(bucket, key, metaData)
-        val request: Request = if (isAppend) builder.put(body).build() else builder.post(body).build()
+        val body = buildBody(obj.stream, obj.length, obj.contentType)
+        val builder = getRequestBuilder(bucket, key, obj.metaData)
+
+        val request: Request =
+                if (isAppend) builder.put(body).build() else builder.post(body).build()
 
         val response = pureClient.newCall(request).execute()
         checkErrors(response, bucket, key)
@@ -118,10 +112,11 @@ class ReStorageClient(private val address: String) {
         return builder
     }
 
-    private fun buildBody(stream: InputStream, contentType: String?): RequestBody {
+    private fun buildBody(stream: InputStream, length: Long?, contentType: String?): RequestBody {
         return object : RequestBody() {
 
             override fun contentLength(): Long {
+                if (length != null) return length
                 return if (stream.available() > 0) stream.available().toLong() else -1
             }
 
@@ -137,7 +132,8 @@ class ReStorageClient(private val address: String) {
     }
 
     fun getObject(bucket: String, key: String, start: Long? = null, end: Long? = null): GetResult? {
-        if (start == null && end != null) throw  IllegalArgumentException("start is null but end is not!")
+        if (start == null && end != null) throw  IllegalArgumentException(
+                "start is null but end is not!")
 
         val builder = Request.Builder().url("$address/objects/$bucket/$key")
         if (start != null)
@@ -146,7 +142,8 @@ class ReStorageClient(private val address: String) {
 
         val response = pureClient.newCall(request).execute()
         checkErrors(response, bucket, key)
-        val stream: InputStream = response.body()?.byteStream() ?: throw IllegalStateException("Body is null")
+        val stream: InputStream = response.body()?.byteStream() ?: throw IllegalStateException(
+                "Body is null")
         val metaData = MetaData.fromResponse(bucket, key, response)
         return GetResult(bucket, key, stream, metaData)
     }
@@ -179,3 +176,15 @@ class ReStorageClient(private val address: String) {
     }
 }
 
+data class ObjectToPut(
+        val stream: InputStream,
+        val length: Long? = null,
+        val contentType: String? = null,
+        val metaData: Map<String, String>? = null
+) {
+    constructor(data: ByteArray,
+                length: Long? = null,
+                contentType: String? = null,
+                metaData: Map<String, String>? = null)
+            : this(data.inputStream(), length, contentType, metaData)
+}

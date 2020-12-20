@@ -5,6 +5,7 @@ import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.int
 import com.github.shahrivari.restorage.ReStorageApp
+import com.github.shahrivari.restorage.client.ObjectToPut
 import com.github.shahrivari.restorage.client.ReStorageClient
 import com.github.shahrivari.restorage.commons.randomBytes
 import com.google.common.base.Stopwatch
@@ -52,7 +53,7 @@ class Benchmark : CliktCommand() {
                         logger.info { "Speed: $speed rps; Requests performed: $formatted" }
                     }
                     try {
-                        client.putObject(bucket, key.toString(), values.random())
+                        client.putObject(bucket, key.toString(), ObjectToPut(values.random()))
                     } catch (e: Exception) {
                         logger.error(e) { "Cannot put!" }
                     }

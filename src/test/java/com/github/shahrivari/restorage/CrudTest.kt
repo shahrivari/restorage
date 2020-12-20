@@ -86,7 +86,7 @@ class CrudTest {
     fun `test big object`() {
         val bigValue = ByteArray(10_000_000)
         Random().nextBytes(bigValue)
-        client.putObject(DEFAULT_BUCKET, defaultKey, ByteArrayInputStream(bigValue))
+        client.putObject(DEFAULT_BUCKET, defaultKey, bigValue)
 
         var result = client.getObject(DEFAULT_BUCKET, defaultKey)?.getAllBytes()
 
@@ -249,7 +249,7 @@ class CrudTest {
         val key = "key"
         if (!client.bucketExists(bucket))
             client.createBucket(bucket)
-        client.putObject(bucket, key, "Some value".byteInputStream())
+        client.putObject(bucket, key, "Some value".toByteArray())
         client.getObject(bucket, key)
         client.deleteBucket(bucket)
         client.createBucket(bucket)
@@ -265,7 +265,7 @@ class CrudTest {
         val value = "Some value"
         if (!client.bucketExists(bucket))
             client.createBucket(bucket)
-        client.putObject(bucket, key, value.byteInputStream())
+        client.putObject(bucket, key, value.toByteArray())
         val meta = client.getObjectMd5(bucket, key)
         val md5 = Hashing.md5().hashString(value, Charsets.UTF_8).toString()
         Assertions.assertThat(meta?.get("md5")).isEqualTo(md5)
