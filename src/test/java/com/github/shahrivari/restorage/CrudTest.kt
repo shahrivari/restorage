@@ -1,5 +1,6 @@
 package com.github.shahrivari.restorage
 
+import com.github.shahrivari.restorage.client.ObjectToPut
 import com.github.shahrivari.restorage.client.ReStorageClient
 import com.github.shahrivari.restorage.commons.randomBytes
 import com.github.shahrivari.restorage.exception.BucketNotFoundException
@@ -7,9 +8,9 @@ import com.github.shahrivari.restorage.exception.KeyNotFoundException
 import com.github.shahrivari.restorage.exception.MetaDataTooLargeException
 import com.github.shahrivari.restorage.store.fs.FileSystemStore
 import com.google.common.hash.Hashing
+import io.javalin.core.util.RouteOverviewUtil.metaInfo
 import org.assertj.core.api.Assertions
 import org.junit.jupiter.api.*
-import java.io.ByteArrayInputStream
 import java.io.File
 import java.util.*
 import kotlin.concurrent.thread
@@ -269,5 +270,31 @@ class CrudTest {
         val meta = client.getObjectMd5(bucket, key)
         val md5 = Hashing.md5().hashString(value, Charsets.UTF_8).toString()
         Assertions.assertThat(meta?.get("md5")).isEqualTo(md5)
+    }
+
+    @Test
+    fun `get meta data`() {
+        val bucket = "reza"
+        val key = "key"
+        val value = "Some value"
+        if (!client.bucketExists(bucket))
+            client.createBucket(bucket)
+
+        val map = mapOf("alaki" to "chert")
+        val obj = ObjectToPut(value.toByteArray(), contentType = "text/plain", metaData = map)
+        client.putObject(bucket, key, obj)
+
+        val meta = client.getObjectMeta(bucket, key)
+        Assertions.assertThat(meta?.objectSize).isEqualTo(value.length.toLong())
+        Assertions.assertThat(meta?.contentLength).isEqualTo(value.length.toLong())
+        Assertions.assertThat(meta?.contentType).isEqualTo("text/plain")
+        Assertions.assertThat(meta?.other).isEqualTo(map)
+
+        val result = client.getObject(bucket, key, 1, 5)
+        Assertions.assertThat(result?.metaData?.objectSize).isEqualTo(value.length.toLong())
+        Assertions.assertThat(result?.metaData?.contentLength).isEqualTo(5)
+        Assertions.assertThat(result?.metaData?.contentType).isEqualTo("text/plain")
+        Assertions.assertThat(result?.metaData?.other).isEqualTo(map)
+
     }
 }

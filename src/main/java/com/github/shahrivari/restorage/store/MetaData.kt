@@ -1,6 +1,5 @@
 package com.github.shahrivari.restorage.store
 
-import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonInclude
 import io.javalin.http.Context
 import okhttp3.Response
@@ -10,16 +9,14 @@ import java.util.concurrent.ConcurrentHashMap
 @JsonInclude(JsonInclude.Include.NON_NULL)
 data class MetaData(var bucket: String,
                     var key: String,
-                    @JsonIgnore
                     var contentLength: Long? = null,
-                    @JsonIgnore
                     var objectSize: Long? = null,
-                    var contentType: String? = null,
-                    @JsonIgnore
                     var lastModified: Long? = null,
+                    var contentType: String? = null,
                     var other: MutableMap<String, String> = ConcurrentHashMap()) {
     companion object {
         const val OBJECT_META_HEADER_PREFIX = "X-ReStorage-Object-Meta-"
+        const val OBJECT_SIZE_HEADER = "X-ReStorage-Object-Size"
 
         fun fromHttpHeaders(ctx: Context): MetaData {
             val metaData = MetaData(ctx.pathParam("bucket"),
@@ -36,7 +33,10 @@ data class MetaData(var bucket: String,
             val metaData = MetaData(bucket, key)
             metaData.contentLength = response.body()?.contentLength()
             metaData.contentType = response.body()?.contentType()?.toString()
-            metaData.lastModified = response.header("Last-Modified")?.let { HttpDate.parse(it).time }
+            metaData.objectSize = response.header(OBJECT_SIZE_HEADER)?.toLongOrNull()
+            metaData.lastModified = response.header("Last-Modified")?.let {
+                HttpDate.parse(it).time
+            }
 
             response.headers().names().filter { it.startsWith(OBJECT_META_HEADER_PREFIX) }.forEach {
                 metaData.set(it.removePrefix(OBJECT_META_HEADER_PREFIX), response.header(it) ?: "")
@@ -56,6 +56,7 @@ data class MetaData(var bucket: String,
     fun fillToHeaders(ctx: Context) {
         ctx.contentType(contentType ?: "application/octet-stream")
         contentLength?.let { ctx.res.setContentLengthLong(it) }
+        objectSize?.let { ctx.res.setHeader(OBJECT_SIZE_HEADER, it.toString()) }
         lastModified?.let {
             ctx.res.setDateHeader("Last-Modified", it)
             ctx.res.setIntHeader("Age", ((System.currentTimeMillis() - it) / 1000).toInt())

@@ -62,6 +62,7 @@ class FileSystemStore(private val rootDir: String) : Store {
     private fun makeMeta(meta: MetaData): ByteArray {
         val stream = ByteArrayOutputStream(MAX_META_SIZE)
         stream.bufferedWriter(Charsets.UTF_8).use {
+            val meta = meta.copy(contentLength = null, lastModified = null, objectSize = null)
             it.write(meta.toJson())
             it.newLine()
             it.flush()
@@ -132,7 +133,7 @@ class FileSystemStore(private val rootDir: String) : Store {
                                                           BasicFileAttributes::class.java)
             meta.contentLength = attr.size() - MAX_META_SIZE
             meta.lastModified = attr.lastModifiedTime().toMillis()
-            meta.objectSize = attr.size()  - MAX_META_SIZE
+            meta.objectSize = attr.size() - MAX_META_SIZE
             return@withBucket meta
         } catch (e: FileNotFoundException) {
             throw KeyNotFoundException(bucket, key)
