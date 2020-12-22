@@ -69,6 +69,14 @@ class ReStorageApp : CliktCommand() {
             ctx.json(mapOf("errorCode" to e.errorCode, "message" to e.message))
         }
 
+        app.before { ctx ->
+            val headers = ctx.req.headerNames.toList().map {
+                it to ctx.req.getHeader(it)
+            }.toMap()
+
+            logger.info { "Request received: ${ctx.req.requestURI} HEADERS: $headers" }
+        }
+
         app.after { ctx ->
             ctx.res.setHeader("Server", "ReStorage")
         }

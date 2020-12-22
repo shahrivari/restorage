@@ -7,8 +7,10 @@ import com.github.shahrivari.restorage.store.DeleteResponse
 import com.github.shahrivari.restorage.store.MetaData
 import com.github.shahrivari.restorage.store.fs.FileSystemStore
 import io.javalin.http.Context
+import mu.KotlinLogging
 
 class Controller(private val store: FileSystemStore) {
+    private val logger = KotlinLogging.logger {}
 
     companion object {
         const val BUCKET_CRUD_PATH = "/buckets/:bucket"
@@ -25,6 +27,8 @@ class Controller(private val store: FileSystemStore) {
 
     fun headObject(ctx: Context) {
         val result = store.getMeta(ctx.bucket(), ctx.key())
+        ctx.header("Content-Encoding", "identity")
+        ctx.header("Accept-Ranges", "bytes")
         result.fillToHeaders(ctx)
         result.objectSize?.let { ctx.res.setContentLengthLong(it) }
     }
@@ -48,8 +52,16 @@ class Controller(private val store: FileSystemStore) {
             end = ranges.first().end
         }
 
+        logger.debug { "Range: $start-$end" }
+
         val result = store.get(ctx.bucket(), ctx.key(), start, end)
         ctx.header("Content-Encoding", "identity")
+        ctx.header("Accept-Ranges", "bytes")
+        if (rangeHeader != null) {
+            val endStr = end?.toString() ?: ""
+            ctx.header("Content-Range", "bytes $start-$endStr/${result.metaData?.objectSize}")
+        }
+
         result.metaData?.fillToHeaders(ctx)
 
         if (start == null && end == null)

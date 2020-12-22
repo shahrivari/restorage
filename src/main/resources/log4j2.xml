@@ -8,6 +8,11 @@
     </Appenders>
 
     <Loggers>
+        <Logger name="com.github.shahrivari" additivity="false">
+            <Level value="DEBUG"/>
+            <AppenderRef ref="Console"/>
+        </Logger>
+
         <Root level="INFO">
             <AppenderRef ref="Console"/>
         </Root>

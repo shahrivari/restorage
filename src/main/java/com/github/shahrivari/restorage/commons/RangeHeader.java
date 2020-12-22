@@ -26,7 +26,7 @@ public class RangeHeader {
 
     public Long length() {
         if (end == null)
-            return Long.MAX_VALUE;
+            return -1L;
         else
             return end - start;
     }
