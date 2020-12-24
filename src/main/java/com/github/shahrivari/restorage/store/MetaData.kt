@@ -7,13 +7,13 @@ import okhttp3.internal.http.HttpDate
 import java.util.concurrent.ConcurrentHashMap
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
-data class MetaData(var bucket: String,
-                    var key: String,
+data class MetaData(val bucket: String,
+                    val key: String,
                     var contentLength: Long? = null,
                     var objectSize: Long? = null,
                     var lastModified: Long? = null,
                     var contentType: String? = null,
-                    var other: MutableMap<String, String> = ConcurrentHashMap()) {
+                    val other: MutableMap<String, String> = ConcurrentHashMap()) {
     companion object {
         const val OBJECT_META_HEADER_PREFIX = "X-ReStorage-Object-Meta-"
         const val OBJECT_SIZE_HEADER = "X-ReStorage-Object-Size"

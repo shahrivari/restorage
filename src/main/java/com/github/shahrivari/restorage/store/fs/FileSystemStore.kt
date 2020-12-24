@@ -100,7 +100,7 @@ class FileSystemStore(private val rootDir: String) : Store {
 
                 return@withBucket lockObjectForWrite(bucket, key) {
                     val size = RandomAccessFile(file, "rw").use { randomFile ->
-                        if (meta.other.isNotEmpty()) {
+                        if (meta.other.isNotEmpty() || meta.contentType != null) {
                             randomFile.seek(0)
                             val metaBytes = ByteArray(MAX_META_SIZE)
                             randomFile.read(metaBytes)
@@ -108,6 +108,7 @@ class FileSystemStore(private val rootDir: String) : Store {
                             meta.other.forEach {
                                 oldMeta.set(it.key, it.value)
                             }
+                            meta.contentType?.let { oldMeta.contentType = it }
                             randomFile.seek(0)
                             randomFile.write(makeMeta(oldMeta))
                         }
