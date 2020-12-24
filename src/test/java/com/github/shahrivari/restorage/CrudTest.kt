@@ -40,12 +40,11 @@ class CrudTest {
         app.stop()
     }
 
-
-    val defaultKey = "1"
     val defaultValue = "0123456789".repeat(100).toByteArray()
 
     @BeforeEach
     private fun resetDefaultBucket() {
+        val defaultKey = Random().nextLong().toString()
         if (client.bucketNotExists(DEFAULT_BUCKET))
             client.createBucket(DEFAULT_BUCKET)
         if (client.objectExists(DEFAULT_BUCKET, defaultKey))
@@ -54,6 +53,7 @@ class CrudTest {
 
     @Test
     fun `test simple put`() {
+        val defaultKey = Random().nextLong().toString()
         client.putObject(DEFAULT_BUCKET, defaultKey, defaultValue)
         val result = client.getObject(DEFAULT_BUCKET, defaultKey)
         Assertions.assertThat(defaultValue).isEqualTo(result?.getAllBytes())
@@ -61,6 +61,7 @@ class CrudTest {
 
     @Test
     fun `test empty put`() {
+        val defaultKey = Random().nextLong().toString()
         val emptyBytes = ByteArray(0)
         client.putObject(DEFAULT_BUCKET, defaultKey, emptyBytes)
         val result = client.getObject(DEFAULT_BUCKET, defaultKey)
@@ -69,6 +70,7 @@ class CrudTest {
 
     @Test
     fun `test simple append`() {
+        val defaultKey = Random().nextLong().toString()
         client.putObject(DEFAULT_BUCKET, defaultKey, defaultValue)
         client.appendObject(DEFAULT_BUCKET, defaultKey, defaultValue)
         val result = client.getObject(DEFAULT_BUCKET, defaultKey)
@@ -77,6 +79,7 @@ class CrudTest {
 
     @Test
     fun `test range request`() {
+        val defaultKey = Random().nextLong().toString()
         client.putObject(DEFAULT_BUCKET, defaultKey, defaultValue)
         val result = client.getObject(DEFAULT_BUCKET, defaultKey, 10, 20)
         val range = defaultValue.sliceArray(IntRange(10, 20))
@@ -85,6 +88,7 @@ class CrudTest {
 
     @Test
     fun `test big object`() {
+        val defaultKey = Random().nextLong().toString()
         val bigValue = ByteArray(10_000_000)
         Random().nextBytes(bigValue)
         client.putObject(DEFAULT_BUCKET, defaultKey, bigValue)
@@ -102,6 +106,7 @@ class CrudTest {
 
     @Test
     fun `test put with meta data`() {
+        val defaultKey = Random().nextLong().toString()
         val meta = mapOf("meta1" to "1", "meta2" to "2")
         client.putObject(DEFAULT_BUCKET, defaultKey, defaultValue, metaData = meta)
         val result = client.getObject(DEFAULT_BUCKET, defaultKey)
@@ -111,6 +116,7 @@ class CrudTest {
 
     @Test
     fun `should fail on large meta data`() {
+        val defaultKey = Random().nextLong().toString()
         val meta = mapOf("meta1" to "1", "meta2" to "2".repeat(FileSystemStore.MAX_META_SIZE + 9))
 
         Assertions.assertThatThrownBy {
@@ -120,6 +126,7 @@ class CrudTest {
 
     @Test
     fun `test append with meta data`() {
+        val defaultKey = Random().nextLong().toString()
         val meta = mutableMapOf("meta1" to "1", "meta2" to "2")
         client.putObject(DEFAULT_BUCKET, defaultKey, defaultValue, metaData = meta)
         var result = client.getObject(DEFAULT_BUCKET, defaultKey)
@@ -134,6 +141,7 @@ class CrudTest {
 
     @Test
     fun `test delete object`() {
+        val defaultKey = Random().nextLong().toString()
         Assertions.assertThatThrownBy {
             client.deleteObject("INVALID_BUCKET", defaultKey)
         }.isInstanceOf(BucketNotFoundException::class.java)
@@ -154,6 +162,7 @@ class CrudTest {
 
     @Test
     fun `test get with invalid bucket`() {
+        val defaultKey = Random().nextLong().toString()
         client.putObject(DEFAULT_BUCKET, defaultKey, defaultValue)
         Assertions.assertThatThrownBy {
             client.getObject("INVALID_BUCKET", defaultKey)
@@ -162,6 +171,7 @@ class CrudTest {
 
     @Test
     fun `test put with invalid bucket`() {
+        val defaultKey = Random().nextLong().toString()
         Assertions.assertThatThrownBy {
             client.putObject("INVALID_BUCKET", defaultKey, defaultValue)
         }.isInstanceOf(BucketNotFoundException::class.java)
@@ -169,6 +179,7 @@ class CrudTest {
 
     @Test
     fun `test append with invalid bucket`() {
+        val defaultKey = Random().nextLong().toString()
         Assertions.assertThatThrownBy {
             client.appendObject("INVALID_BUCKET", defaultKey, defaultValue)
         }.isInstanceOf(BucketNotFoundException::class.java)
@@ -176,6 +187,7 @@ class CrudTest {
 
     @Test
     fun `test get with invalid key`() {
+        val defaultKey = Random().nextLong().toString()
         Assertions.assertThatThrownBy {
             client.getObject(DEFAULT_BUCKET, defaultKey)
         }.isInstanceOf(KeyNotFoundException::class.java)
@@ -183,6 +195,7 @@ class CrudTest {
 
     @Test
     fun `store empty file with some meta`() {
+        val defaultKey = Random().nextLong().toString()
         val meta = mutableMapOf("meta1" to "1", "meta2" to "2")
         client.putObject(DEFAULT_BUCKET, defaultKey, ByteArray(0), metaData = meta)
         val result = client.getObject(DEFAULT_BUCKET, defaultKey)
@@ -192,6 +205,7 @@ class CrudTest {
 
     @Test
     fun `test meta data manipulation`() {
+        val defaultKey = Random().nextLong().toString()
         val meta = mutableMapOf("meta1" to "1", "meta2" to "2")
         client.putObject(DEFAULT_BUCKET, defaultKey, ByteArray(0), metaData = meta)
         var metaData = client.getObjectMeta(DEFAULT_BUCKET, defaultKey)
@@ -222,6 +236,7 @@ class CrudTest {
 
     @Test
     fun `test concurrent put`() {
+        val defaultKey = Random().nextLong().toString()
         val bigValue = randomBytes(10_000_000)
         val thread = thread {
             client.putObject(DEFAULT_BUCKET, defaultKey, bigValue)
@@ -237,6 +252,7 @@ class CrudTest {
 
     @Test
     fun `test multi concurrent put`() {
+        val defaultKey = Random().nextLong().toString()
         val values = (0..40).map { randomBytes(1_000_000) }.toList()
         val threads = values.map { thread { client.putObject(DEFAULT_BUCKET, defaultKey, it) } }
         threads.forEach { it.join() }

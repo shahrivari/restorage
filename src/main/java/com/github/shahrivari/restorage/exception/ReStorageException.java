@@ -53,6 +53,9 @@ public class ReStorageException extends Exception {
             case MetaDataTooLargeException.ERROR_CODE:
                 exp = new MetaDataTooLargeException(bucket, key == null ? "" : key);
                 break;
+            case LimitedDeleteAccess.ERROR_CODE:
+                exp = new LimitedDeleteAccess(bucket, key);
+                break;
         }
 
         return exp;

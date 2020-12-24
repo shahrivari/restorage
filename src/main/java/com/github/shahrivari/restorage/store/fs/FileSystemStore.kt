@@ -1,10 +1,7 @@
 package com.github.shahrivari.restorage.store.fs
 
 import com.github.shahrivari.restorage.commons.*
-import com.github.shahrivari.restorage.exception.BucketNotFoundException
-import com.github.shahrivari.restorage.exception.InvalidRangeRequestException
-import com.github.shahrivari.restorage.exception.KeyNotFoundException
-import com.github.shahrivari.restorage.exception.MetaDataTooLargeException
+import com.github.shahrivari.restorage.exception.*
 import com.github.shahrivari.restorage.store.GetResult
 import com.github.shahrivari.restorage.store.MetaData
 import com.github.shahrivari.restorage.store.PutResult
@@ -12,8 +9,6 @@ import com.github.shahrivari.restorage.store.Store
 import com.google.common.cache.CacheBuilder
 import com.google.common.hash.Funnels
 import com.google.common.hash.Hashing
-import com.google.common.hash.HashingInputStream
-import com.google.common.io.ByteSource
 import com.google.common.io.ByteStreams
 import java.io.*
 import java.nio.file.attribute.BasicFileAttributes
@@ -187,8 +182,10 @@ class FileSystemStore(private val rootDir: String) : Store {
         val length = lockObjectForWrite(bucket, key) {
             val file = File(getFilePathForKey(bucket, key))
             val length = file.length()
-            if (!file.delete())
+            if (!file.exists())
                 throw KeyNotFoundException(bucket, key)
+            val deletedFile = getDeletedFile(bucket, key, file)
+            file.renameTo(deletedFile)
             return@lockObjectForWrite length
         }
         return@withBucket length - MAX_META_SIZE
@@ -236,5 +233,13 @@ class FileSystemStore(private val rootDir: String) : Store {
             bytes = read(buffer)
         }
         return bytesCopied
+    }
+
+    private fun getDeletedFile(bucket: String, key: String, file: File): File {
+        val folder = file.parentFile
+        val previousVersions = folder.list().count{it.contains(file.name)}
+        if (previousVersions > 3)
+            throw LimitedDeleteAccess(bucket, key)
+        return File(file.path+".${System.currentTimeMillis()}.deleted")
     }
 }
