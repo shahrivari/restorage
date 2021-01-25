@@ -98,7 +98,9 @@ class ReStorageClient(private val address: String) {
         val response = pureClient.newCall(request).execute()
         checkErrors(response, bucket, key)
         val json = response.body()?.string() ?: return null
-        return fromJson<PutResult>(json)
+        return fromJson<PutResult>(json).also {
+            response.close()
+        }
     }
 
     private fun getRequestBuilder(bucket: String, key: String,
@@ -145,7 +147,9 @@ class ReStorageClient(private val address: String) {
         val stream: InputStream = response.body()?.byteStream() ?: throw IllegalStateException(
                 "Body is null")
         val metaData = MetaData.fromResponse(bucket, key, response)
-        return GetResult(bucket, key, stream, metaData)
+        return GetResult(bucket, key, stream, metaData).also {
+            response.close()
+        }
     }
 
     fun getObjectMeta(bucket: String, key: String): MetaData? {
