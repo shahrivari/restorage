@@ -2,8 +2,8 @@ package com.github.shahrivari.restorage.store
 
 import com.fasterxml.jackson.annotation.JsonInclude
 import io.javalin.http.Context
-import okhttp3.Response
 import okhttp3.internal.http.HttpDate
+import org.apache.http.HttpResponse
 import java.util.concurrent.ConcurrentHashMap
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -29,19 +29,17 @@ data class MetaData(val bucket: String,
             return metaData
         }
 
-        fun fromResponse(bucket: String, key: String, response: Response): MetaData {
+        fun fromResponse(bucket: String, key: String, response: HttpResponse): MetaData {
             val metaData = MetaData(bucket, key)
-            metaData.contentLength = response.body()?.contentLength()
-            metaData.contentType = response.body()?.contentType()?.toString()
-            metaData.objectSize = response.header(OBJECT_SIZE_HEADER)?.toLongOrNull()
-            metaData.lastModified = response.header("Last-Modified")?.let {
-                HttpDate.parse(it).time
+            metaData.contentLength = response.entity.contentLength
+            metaData.contentType = response.entity.contentType.value
+            metaData.objectSize = response.getFirstHeader(OBJECT_SIZE_HEADER).value.toLongOrNull()
+            metaData.lastModified = response.getFirstHeader("Last-Modified")?.let {
+                HttpDate.parse(it.value).time
             }
-
-            response.headers().names().filter { it.startsWith(OBJECT_META_HEADER_PREFIX) }.forEach {
-                metaData.set(it.removePrefix(OBJECT_META_HEADER_PREFIX), response.header(it) ?: "")
+            response.allHeaders.filter { it.name.startsWith(OBJECT_META_HEADER_PREFIX) }.forEach {
+                metaData.set(it.name.removePrefix(OBJECT_META_HEADER_PREFIX), it.value ?: "")
             }
-
             return metaData
         }
     }
