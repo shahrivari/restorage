@@ -81,11 +81,12 @@ class Controller(private val store: FileSystemStore) {
     }
 
     fun putObject(ctx: Context) {
-        val result = store.put(ctx.bucket(),
-                               ctx.key(),
-                               ctx.req.inputStream,
-                               MetaData.fromHttpHeaders(ctx))
-        ctx.json(result)
+        Thread.sleep(50)
+//        val result = store.put(ctx.bucket(),
+//                               ctx.key(),
+//                               ctx.req.inputStream,
+//                               MetaData.fromHttpHeaders(ctx))
+//        ctx.json(result)
     }
 
     fun deleteBucket(ctx: Context) {
