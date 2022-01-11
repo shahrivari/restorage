@@ -13,8 +13,8 @@ class Controller(private val store: FileSystemStore) {
     private val logger = KotlinLogging.logger {}
 
     companion object {
-        const val BUCKET_CRUD_PATH = "/buckets/:bucket"
-        const val OBJECT_CRUD_PATH = "/objects/:bucket/:key"
+        const val BUCKET_CRUD_PATH = "/buckets/{bucket}"
+        const val OBJECT_CRUD_PATH = "/objects/{bucket}/{key}"
     }
 
     fun Context.bucket() = pathParam("bucket")
