@@ -63,6 +63,10 @@ class ReStorageApp : CliktCommand() {
 
         app.delete(Controller.OBJECT_CRUD_PATH) { ctx -> controller.deleteObject(ctx) }
 
+        app.post(Controller.HLS_POST_PATH) { ctx -> controller.generateHls(ctx) }
+
+        app.get(Controller.HLS_GET_PATH) { ctx -> controller.getHlsFile(ctx) }
+
 
         app.exception(ReStorageException::class.java) { e, ctx ->
             ctx.status(e.statusCode)
@@ -74,7 +78,7 @@ class ReStorageApp : CliktCommand() {
                 it to ctx.req.getHeader(it)
             }.toMap()
 
-            logger.info { "Request received: ${ctx.req.requestURI} HEADERS: $headers" }
+            logger.info { "Request received: ${ctx.method()} ${ctx.req.requestURI} HEADERS: $headers" }
         }
 
         app.after { ctx ->

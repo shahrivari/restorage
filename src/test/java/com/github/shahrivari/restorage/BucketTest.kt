@@ -10,7 +10,6 @@ import kotlin.test.assertTrue
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class BucketTest {
-
     companion object {
         const val port = 8000
         const val dir = "/dev/shm/restorage_unit_tests"

@@ -1,11 +1,14 @@
 package com.github.shahrivari.restorage.store.fs
 
+import com.github.kokorin.jaffree.StreamType
+import com.github.kokorin.jaffree.ffmpeg.FFmpeg
+import com.github.kokorin.jaffree.ffmpeg.PipeInput
+import com.github.kokorin.jaffree.ffmpeg.UrlOutput
+import com.github.kokorin.jaffree.ffprobe.FFprobe
+import com.github.kokorin.jaffree.ffprobe.FFprobeResult
 import com.github.shahrivari.restorage.commons.*
 import com.github.shahrivari.restorage.exception.*
-import com.github.shahrivari.restorage.store.GetResult
-import com.github.shahrivari.restorage.store.MetaData
-import com.github.shahrivari.restorage.store.PutResult
-import com.github.shahrivari.restorage.store.Store
+import com.github.shahrivari.restorage.store.*
 import com.google.common.cache.CacheBuilder
 import com.google.common.hash.Funnels
 import com.google.common.hash.Hashing
@@ -198,8 +201,55 @@ class FileSystemStore(private val rootDir: String) : Store {
         return@withBucket hasher.hash().toString()
     }
 
-    fun getUnderlyingFile(bucket: String, key: String) =
-            File(getFilePathForKey(bucket, key))
+    override fun generateHls(bucket: String, key: String): HlsCreationResult {
+        val objectFile = File(getFilePathForKey(bucket, key))
+        if (!objectFile.exists())
+            throw KeyNotFoundException(bucket, key)
+
+
+        val dir = getDirectoryForHls(bucket, key)
+
+        val videoInputStream = objectFile.inputStream().apply { channel.position(MAX_META_SIZE.toLong()) }
+
+        val fFprobeResult: FFprobeResult = FFprobe.atPath()
+            .setShowStreams(true)
+            .setInput(videoInputStream)
+            .execute()
+
+        val videoStream = fFprobeResult.streams.firstOrNull { it.codecType == StreamType.VIDEO }
+            ?: throw NoVideoFileException(bucket, key)
+
+        val tsFormat = File("$dir${File.separator}${Store.TS_FILE_PATTERN}")
+        val outputFile = File("$dir${File.separator}${Store.M3U8_FILE_NAME}")
+
+        videoInputStream.channel.position(MAX_META_SIZE.toLong())
+        val fFmpegResult = FFmpeg.atPath()
+            .addInput(PipeInput.pumpFrom(videoInputStream))
+            .setOverwriteOutput(true)
+            .addArguments("-hls_list_size", "0")
+            .addArguments("-hls_time", "10")
+            .addArguments("-c", "copy")
+            .addArguments("-map", "0").addArguments("-map", "-0:s") //just disable subs
+            .addArguments("-hls_segment_filename", tsFormat.absolutePath)
+            .addOutput(UrlOutput.toUrl(outputFile.absolutePath))
+            .execute()
+
+        return HlsCreationResult(
+            bucket,
+            key,
+            objectFile.length() - MAX_META_SIZE,
+            videoStream.width,
+            videoStream.height,
+            videoStream.bitRate,
+            fFmpegResult.videoSize,
+            fFmpegResult.audioSize
+        )
+    }
+
+    override fun getHlsFile(bucket: String, key: String, fileName: String): InputStream {
+        val dir = getDirectoryForHls(bucket, key)
+        return File("$dir${File.separator}$fileName").inputStream()
+    }
 
     private fun getFilePathForKey(bucket: String, key: String): String {
         val bucketInfo = getBucketInfo(bucket)
@@ -207,6 +257,17 @@ class FileSystemStore(private val rootDir: String) : Store {
             throw BucketNotFoundException(bucket)
         val path = DirectoryCalculator.getTwoNestedLevels(rootDir, key)
         return "$path.${bucketInfo.get().id}.object"
+    }
+
+    private fun getDirectoryForHls(bucket: String, key: String): File {
+        val bucketInfo = getBucketInfo(bucket)
+        if (!bucketInfo.isPresent)
+            throw BucketNotFoundException(bucket)
+        val path = DirectoryCalculator.getTwoNestedLevels(rootDir, key)
+        val dir = File("$path.${bucketInfo.get().id}.hls")
+        if(!dir.exists())
+            dir.mkdir()
+        return dir
     }
 
     private fun <R> withBucket(bucket: String, block: () -> R): R {
