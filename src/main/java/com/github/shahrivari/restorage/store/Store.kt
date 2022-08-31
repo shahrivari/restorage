@@ -6,6 +6,11 @@ import java.util.*
 
 interface Store {
 
+    companion object {
+        const val M3U8_FILE_NAME = "video.m3u8"
+        const val TS_FILE_PATTERN = "part-%d.ts"
+    }
+
     fun createBucket(bucket: String): BucketInfo
 
     fun getBucketInfo(bucket: String): Optional<BucketInfo>
@@ -25,4 +30,9 @@ interface Store {
     fun delete(bucket: String, key: String) : Long
 
     fun computeMd5(bucket: String, key: String): String
+
+    fun generateHls(bucket: String, key: String): HlsCreationResult
+
+    fun getHlsFile(bucket: String, key: String, file: String): InputStream
+
 }

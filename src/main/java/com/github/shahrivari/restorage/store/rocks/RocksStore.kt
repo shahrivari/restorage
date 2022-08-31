@@ -1,9 +1,6 @@
 package com.github.shahrivari.restorage.store.rocks
 
-import com.github.shahrivari.restorage.store.GetResult
-import com.github.shahrivari.restorage.store.MetaData
-import com.github.shahrivari.restorage.store.PutResult
-import com.github.shahrivari.restorage.store.Store
+import com.github.shahrivari.restorage.store.*
 import com.github.shahrivari.restorage.store.fs.BucketInfo
 import org.rocksdb.Options
 import org.rocksdb.RocksDB
@@ -57,6 +54,14 @@ class RocksStore(val path: String) : Store {
     }
 
     override fun computeMd5(bucket: String, key: String): String {
+        TODO("Not yet implemented")
+    }
+
+    override fun generateHls(bucket: String, key: String): HlsCreationResult {
+        TODO("Not yet implemented")
+    }
+
+    override fun getHlsFile(bucket: String, key: String, file: String): InputStream {
         TODO("Not yet implemented")
     }
 }

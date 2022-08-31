@@ -15,6 +15,8 @@ class Controller(private val store: FileSystemStore) {
     companion object {
         const val BUCKET_CRUD_PATH = "/buckets/{bucket}"
         const val OBJECT_CRUD_PATH = "/objects/{bucket}/{key}"
+        const val HLS_POST_PATH = "/hls/{bucket}/{key}"
+        const val HLS_GET_PATH = "/hls/{bucket}/{key}/{file}"
     }
 
     fun Context.bucket() = pathParam("bucket")
@@ -73,18 +75,22 @@ class Controller(private val store: FileSystemStore) {
     }
 
     fun putChunk(ctx: Context) {
-        val result = store.append(ctx.bucket(),
-                                  ctx.key(),
-                                  ctx.req.inputStream,
-                                  MetaData.fromHttpHeaders(ctx))
+        val result = store.append(
+            ctx.bucket(),
+            ctx.key(),
+            ctx.req.inputStream,
+            MetaData.fromHttpHeaders(ctx)
+        )
         ctx.json(result)
     }
 
     fun putObject(ctx: Context) {
-        val result = store.put(ctx.bucket(),
-                               ctx.key(),
-                               ctx.req.inputStream,
-                               MetaData.fromHttpHeaders(ctx))
+        val result = store.put(
+            ctx.bucket(),
+            ctx.key(),
+            ctx.req.inputStream,
+            MetaData.fromHttpHeaders(ctx)
+        )
         ctx.json(result)
     }
 
@@ -117,4 +123,18 @@ class Controller(private val store: FileSystemStore) {
         ctx.status(200)
         ctx.json(meta)
     }
+
+    fun generateHls(ctx: Context) {
+        val result = store.generateHls(ctx.bucket(), ctx.key())
+        ctx.json(result)
+    }
+
+    fun getHlsFile(ctx: Context) {
+        val file = ctx.pathParam("file")
+        val result = store.getHlsFile(ctx.bucket(), ctx.key(), file)
+        if (file.endsWith(".m3u8", true))
+            ctx.header("Content-Type", "application/vnd.apple.mpegurl")
+        ctx.result(result)
+    }
+
 }
