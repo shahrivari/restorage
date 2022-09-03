@@ -230,7 +230,7 @@ class FileSystemStore(private val rootDir: String) : Store {
             .addArguments("-hls_time", "10")
             .addArguments("-c", "copy")
             .addArguments("-map", "0").addArguments("-map", "-0:s") //just disable subs
-            .addArguments("-hls_segment_filename", tsFormat.absolutePath)
+            //.addArguments("-hls_segment_filename", tsFormat.absolutePath)
             .addOutput(UrlOutput.toUrl(outputFile.absolutePath))
             .execute()
 

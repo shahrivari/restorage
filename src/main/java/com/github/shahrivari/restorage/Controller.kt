@@ -125,7 +125,7 @@ class Controller(private val store: FileSystemStore) {
     }
 
     fun generateHls(ctx: Context) {
-        val result = store.generateHls(ctx.bucket(), ctx.key())
+        val result = store.generateHls(ctx.bucket(), ctx.key()).copy(url="hls/${ctx.bucket()}/${ctx.key()}/video.m3u8")
         ctx.json(result)
     }
 
