@@ -2,7 +2,6 @@ package com.github.shahrivari.restorage.store.fs
 
 import com.github.kokorin.jaffree.StreamType
 import com.github.kokorin.jaffree.ffmpeg.FFmpeg
-import com.github.kokorin.jaffree.ffmpeg.PipeInput
 import com.github.kokorin.jaffree.ffmpeg.UrlInput
 import com.github.kokorin.jaffree.ffmpeg.UrlOutput
 import com.github.kokorin.jaffree.ffprobe.FFprobe
@@ -22,7 +21,6 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read
 import kotlin.concurrent.write
-import kotlin.io.path.deleteIfExists
 import kotlin.io.path.outputStream
 
 
@@ -168,7 +166,7 @@ class FileSystemStore(private val rootDir: String) : Store {
                 throw KeyNotFoundException(bucket, key)
 
             val actualStart = (start ?: 0) + MAX_META_SIZE
-            val actualEnd = end?.plus(MAX_META_SIZE) ?: file.length() - 1
+            val actualEnd = end?.plus(MAX_META_SIZE) ?: (file.length() - 1)
             val responseLength = actualEnd - actualStart + 1
             if (responseLength < 0)
                 throw InvalidRangeRequestException("start: $start and end: $end")
@@ -213,11 +211,16 @@ class FileSystemStore(private val rootDir: String) : Store {
 
         val dir = getDirectoryForHls(bucket, key)
 
-        val videoInputStream = objectFile.inputStream().apply { channel.position(MAX_META_SIZE.toLong()) }
+        val videoFile = Files.createTempFile(key, ".ffmpeg")
+        videoFile.toFile().deleteOnExit()
+        objectFile.inputStream().apply { channel.position(MAX_META_SIZE.toLong()) }.use { videoInputStream ->
+            videoFile.outputStream().use { videoInputStream.copyTo(it) }
+        }
+
 
         val fFprobeResult: FFprobeResult = FFprobe.atPath()
             .setShowStreams(true)
-            .setInput(videoInputStream)
+            .setInput(videoFile)
             .execute()
 
         val videoStream = fFprobeResult.streams.firstOrNull { it.codecType == StreamType.VIDEO }
@@ -226,24 +229,19 @@ class FileSystemStore(private val rootDir: String) : Store {
         val tsFormat = File("$dir${File.separator}${Store.TS_FILE_PATTERN}")
         val outputFile = File("$dir${File.separator}${Store.M3U8_FILE_NAME}")
 
-        val tempFile = Files.createTempFile(key, ".ffmpeg")
-        videoInputStream.channel.position(MAX_META_SIZE.toLong())
-        tempFile.outputStream().use { videoInputStream.copyTo(it) }
-        videoInputStream.close()
-        tempFile.toFile().deleteOnExit()
 
         val fFmpegResult = FFmpeg.atPath()
-            .addInput(UrlInput.fromPath(tempFile))
+            .addInput(UrlInput.fromPath(videoFile))
             .setOverwriteOutput(true)
             .addArguments("-hls_list_size", "0")
             .addArguments("-hls_time", "10")
             .addArguments("-c", "copy")
             .addArguments("-map", "0").addArguments("-map", "-0:s") //just disable subs
-            //.addArguments("-hls_segment_filename", tsFormat.absolutePath)
+            .addArguments("-hls_segment_filename", tsFormat.absolutePath)
             .addOutput(UrlOutput.toUrl(outputFile.absolutePath))
             .execute()
 
-        tempFile.toFile().delete()
+        videoFile.toFile().delete()
 
         return HlsCreationResult(
             bucket,
